@@ -14,3 +14,19 @@ def crawl(d, cond):
 	if cond(d):
 		return [d]
 	return []
+
+
+def spawn_path_options(path):
+	options = set()
+	
+	if os.path.isfile(path):
+		options.add(path)
+		path = os.path.dirname(path)
+	
+	if os.path.isdir(path):
+		options.add(path)
+	
+	# TODO: include FIG_PATH_ROOT
+	
+	return options
+

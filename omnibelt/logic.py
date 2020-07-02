@@ -5,6 +5,12 @@ from collections import deque
 def sort_by(seq, vals, reverse=False):
 	return [x[0] for x in sorted(zip(seq, vals), key=lambda x: x[1], reverse=reverse)]
 
+def resolve_order(key, *srcs):
+	for src in srcs:
+		val = src(key) if callable(src) else src.get(key, None)
+		if val is not None:
+			return val
+
 
 class CycleDetectedError(Exception):
 	def __init__(self, node):
@@ -31,7 +37,7 @@ def graph_conv(x, g, d=None):
 # def toposort(root, src):
 # 	return linearize(src, heads=[root], order=True)[root]
 
-def toposort(root, get_edges, ordered=True):
+def toposort(root, get_edges, ordered=True): # TODO: this is super messy and must be cleaned up
 	src = graph_conv(root, get_edges)
 	
 	return linearize(src, heads=[root], order=ordered)[root]

@@ -9,7 +9,8 @@ def deep_get(tree, keys):
 
 
 
-class Simple_Child(object): # a simple wrapper that delegates __getattr__s to some parent attribute
+class Simple_Child(object):
+	'''a simple wrapper that delegates __getattribute__ to some parent object if it fails'''
 
 	def __init__(self, *args, _parent=None, **kwargs):
 		super().__init__(*args, **kwargs)
