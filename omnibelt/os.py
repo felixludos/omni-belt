@@ -1,4 +1,13 @@
 import sys, os
+import yaml
+
+def load_yaml(path):
+	with open(path, 'r') as f:
+		return yaml.safe_load(f)
+
+def save_yaml(data, path):
+	with open(path, 'w') as f:
+		return yaml.safe_dump(data, f)
 
 def create_dir(directory):
 	if not os.path.exists(directory):
