@@ -36,4 +36,5 @@ setup(name=info.get('name', None),
       entry_points=info.get('entry_points', {}),
       install_requires=info.get('install_requires', []),
       zip_safe=info.get('zip_safe', False),
+      include_package_data=True,
       )

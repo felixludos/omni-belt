@@ -1,3 +1,4 @@
+dist/
 .idea/
 omnibelt.egg-info/
 __pycache__/
