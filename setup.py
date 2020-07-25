@@ -1,5 +1,4 @@
 import os
-from yaml import safe_load
 from setuptools import setup
 
 info = {'__file__':os.path.join(os.path.abspath(os.path.dirname(__file__)), 'omnibelt', '_info.py')}
@@ -38,5 +37,4 @@ setup(name=info.get('name', None),
       entry_points=info.get('entry_points', {}),
       install_requires=info.get('install_requires', []),
       zip_safe=info.get('zip_safe', False),
-      include_package_data=True,
       )
