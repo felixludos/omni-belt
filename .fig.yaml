@@ -15,3 +15,6 @@ license: GPL3
 readme: 'README.md'
 
 packages: ['omnibelt']
+
+install_requires:
+  - pyyaml
