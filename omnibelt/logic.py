@@ -5,10 +5,19 @@ from collections import deque
 def sort_by(seq, vals, reverse=False):
 	return [x[0] for x in sorted(zip(seq, vals), key=lambda x: x[1], reverse=reverse)]
 
-def resolve_order(key, *srcs):
+def resolve_order(key, *srcs, valid=None):
+	'''
+	All sources must either be callable or a dict-like (implementing .get())
+	If no ``valid`` is provided, only outputs that are ``None`` is treated as invalid.
+	
+	:param key: key to be found
+	:param srcs: ordered sources that may contain key
+	:param valid: callable returns a bool whether or not the source output should be accepted
+	:return: output corresponding to key of the first source that produced a valid output
+	'''
 	for src in srcs:
 		val = src(key) if callable(src) else src.get(key, None)
-		if val is not None:
+		if (valid is None and val is not None) or (valid is not None and valid(val)):
 			return val
 
 
