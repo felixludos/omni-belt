@@ -8,8 +8,8 @@ prt = get_printer(__name__)
 class Registry(OrderedDict):
 	
 	def new(self, name, obj): # register a new entry
-		if name in self:
-			prt.warning(f'Register {self.__class__.__name__} already contains {name}, now overwriting')
+		# if name in self:
+		# 	prt.warning(f'Register {self.__class__.__name__} already contains {name}, now overwriting')
 		# else:
 		# 	prt.debug(f'Registering {name} in {self.__class__.__name__}')
 		
