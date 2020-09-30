@@ -60,6 +60,34 @@ def crawl(d, cond):
 		return [d]
 	return []
 
+def load_csv(path, sep=',', head=0, tail=0, row_sep='\n', as_gen=False):
+	'''
+	
+	:param path:
+	:param sep:
+	:param head: number of lines to skip at the beginning of the file
+	:param tail: number of lines to skip at the end of the file
+	:return:
+	'''
+
+	with open(path, 'r') as f:
+		raw = f.read()
+
+	lines = raw.split(row_sep)
+	if head > 0:
+		lines = lines[min(head, len(lines)):]
+	if tail > 0:
+		lines = lines[:-min(tail, len(lines))]
+		
+	rows = (line.split(sep) for line in lines)
+	
+	if as_gen:
+		return rows
+	return list(rows)
+
+def load_tsv(path, **kwargs):
+	kwargs['sep'] = '\t'
+	return load_csv(path, **kwargs)
 
 def spawn_path_options(path):
 	options = set()
