@@ -1,4 +1,5 @@
 import sys, os
+import json
 import yaml
 
 from collections import OrderedDict
@@ -32,6 +33,7 @@ def ordered_dump(data, stream=None, Dumper=yaml.Dumper, **kwds):
 # ordered_dump(data, Dumper=yaml.SafeDumper)
 
 def load_yaml(path, ordered=False):
+	path = str(path)
 	with open(path, 'r') as f:
 		if ordered:
 			return ordered_load(f, yaml.SafeLoader)
@@ -40,11 +42,24 @@ def load_yaml(path, ordered=False):
 		# return yaml.load(f)
 
 def save_yaml(data, path, ordered=False, default_flow_style=None, **kwargs):
+	path = str(path)
 	with open(path, 'w') as f:
 		if ordered:
 			return ordered_dump(data, stream=f, Dumper=yaml.SafeDumper,
 			                    default_flow_style=default_flow_style, **kwargs)
 		return yaml.safe_dump(data, f, default_flow_style=default_flow_style, **kwargs)
+
+
+def load_json(path):
+	path = str(path)
+	with open(path, 'r') as f:
+		return json.load(f)
+
+def save_json(data, path):
+	path = str(path)
+	with open(path, 'w') as f:
+		return json.dump(data, f)
+
 
 
 def create_dir(directory):

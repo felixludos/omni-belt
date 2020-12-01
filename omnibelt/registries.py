@@ -37,6 +37,8 @@ class Entry_Registry(Registry):
 	def __init_subclass__(cls, components=[]):
 		super().__init_subclass__()
 		cls._entry = namedtuple(f'{cls.__name__}_Entry', ['name' ] +components)
+		globals()[cls._entry.__name__] = cls._entry
+		cls._entry.__module__ = "__main__"
 	
 	def new(self, name, **info):  # register a new entry
 		super().new(name, self._entry(name=name, **info))
