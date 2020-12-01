@@ -37,6 +37,8 @@ def load_yaml(path, ordered=False):
 			return ordered_load(f, yaml.SafeLoader)
 		return yaml.safe_load(f)
 
+		# return yaml.load(f)
+
 def save_yaml(data, path, ordered=False, default_flow_style=None, **kwargs):
 	with open(path, 'w') as f:
 		if ordered:
