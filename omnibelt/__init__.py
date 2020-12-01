@@ -1,9 +1,11 @@
 
 from .flow import safe_self_execute
 from .logging import get_printer, get_global_setting, get_global_settings, set_global_setting
-from .filesystem import create_dir, crawl, spawn_path_options, load_yaml, save_yaml, load_csv, load_tsv
+from .filesystem import create_dir, crawl, spawn_path_options, load_yaml, save_yaml, \
+	load_csv, load_tsv, load_json, save_json
 from .typing import primitives
 from .timing import get_now, recover_date
+from .patterns import Singleton, InitSingleton
 from .containers import deep_get, Simple_Child, Proper_Child
 from .registries import Registry, Entry_Registry, Named_Registry
 from .logic import sort_by, resolve_order, toposort
