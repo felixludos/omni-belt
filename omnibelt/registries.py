@@ -30,14 +30,21 @@ class Named_Registry(Registry):
 		name = self.find_name(obj)
 		return name in self
 
+class _Entry:
+	def __init__(self, **kwargs):
+		self.__dict__.update(kwargs)
+
 class Entry_Registry(Registry):
 	'''
 	Automatically wraps data into an "entry" object (namedtuple) which is stored in the registry
 	'''
 	def __init_subclass__(cls, components=[]):
 		super().__init_subclass__()
+		# cls._entry = _Entry
 		cls._entry = namedtuple(f'{cls.__name__}_Entry', ['name' ] +components)
 		globals()[cls._entry.__name__] = cls._entry
+		qualname = cls._entry.__module__ # f'{cls._entry.__module__}.{cls._entry.__name__}'
+		cls._entry.__qualname__ = qualname
 		cls._entry.__module__ = "__main__"
 	
 	def new(self, name, **info):  # register a new entry

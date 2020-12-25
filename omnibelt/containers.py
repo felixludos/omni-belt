@@ -1,4 +1,27 @@
 
+from collections import OrderedDict
+from wrapt import ObjectProxy
+
+class AttrDict(dict):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.__dict__ = self
+
+class AttrOrdDict(OrderedDict):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.__dict__ = self
+
+
+class Value(ObjectProxy):
+	def __init__(self, val):
+		self.set(val)
+	
+	def get(self):
+		return self.__wrapped__
+	
+	def set(self, val):
+		self.__wrapped__ = val
 
 
 def deep_get(tree, keys):
