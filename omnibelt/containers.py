@@ -13,15 +13,60 @@ class AttrOrdDict(OrderedDict):
 		self.__dict__ = self
 
 
+class LoadedValue(ObjectProxy):
+	def __deepcopy__(self, memodict={}):
+		return LoadedValue(self.__wrapped__)
+	
+
 class Value(ObjectProxy):
 	def __init__(self, val):
-		self.set(val)
+		super().__init__(val)
+		# self.set(val)
+		self._self_attrs = {}
+		
+	def __reduce__(self, *args, **kwargs):
+		val = self.get()
+		return LoadedValue, (val,)
+		return type(val), (val,)
+		return type(self), (self.get(),)
+
+	def __reduce_ex__(self, *args, **kwargs):
+		val = self.get()
+		return LoadedValue, (val,)
+		return type(val), (val,)
+		return type(self), (self.get(),)
+	
+	def __getstate__(self):
+		return self.get()
+	
+	def __setstate__(self, state):
+		self.set(state)
 	
 	def get(self):
 		return self.__wrapped__
 	
 	def set(self, val):
 		self.__wrapped__ = val
+		# object.__setattr__(self, '__wrapped__', val)
+		# self.__wrapped__ = val
+		
+	def __setattr__(self, key, value):
+		try:
+			super().__setattr__(key, value)
+		except AttributeError:
+			self._self_attrs[key] = value
+
+	def __getattr__(self, item):
+		try:
+			return super().__getattr__(item)
+		except AttributeError:
+			return self._self_attrs[item]
+
+	def __delattr__(self, item):
+		try:
+			super().__delattr__(item)
+		except AttributeError:
+			del self._self_attrs[item]
 
 
 def deep_get(tree, keys):

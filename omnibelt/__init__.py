@@ -6,7 +6,7 @@ from .filesystem import create_dir, crawl, spawn_path_options, load_yaml, save_y
 from .typing import primitives
 from .timing import get_now, recover_date
 from .patterns import Singleton, InitSingleton
-from .containers import deep_get, Simple_Child, Proper_Child, AttrDict, AttrOrdDict, Value
+from .containers import deep_get, Simple_Child, Proper_Child, AttrDict, AttrOrdDict, Value, LoadedValue
 from .registries import Registry, Entry_Registry, Named_Registry
 from .logic import sort_by, resolve_order, toposort
 
