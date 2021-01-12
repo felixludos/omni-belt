@@ -1,4 +1,7 @@
 
+class InitWall:
+    def __init__(self, *args, _req_kwargs={}, **kwargs):
+        super().__init__(**_req_kwargs)
 
 
 class Singleton(object):
