@@ -2,6 +2,7 @@
 from collections import OrderedDict, namedtuple
 
 from .logging import get_printer
+from .filesystem import monkey_patch
 
 prt = get_printer(__name__)
 
@@ -34,6 +35,7 @@ class _Entry:
 	def __init__(self, **kwargs):
 		self.__dict__.update(kwargs)
 
+
 class Entry_Registry(Registry):
 	'''
 	Automatically wraps data into an "entry" object (namedtuple) which is stored in the registry
@@ -42,10 +44,15 @@ class Entry_Registry(Registry):
 		super().__init_subclass__()
 		# cls._entry = _Entry
 		cls._entry = namedtuple(f'{cls.__name__}_Entry', ['name' ] +components)
-		globals()[cls._entry.__name__] = cls._entry
-		qualname = cls._entry.__module__ # f'{cls._entry.__module__}.{cls._entry.__name__}'
-		cls._entry.__qualname__ = qualname
-		cls._entry.__module__ = "__main__"
+		monkey_patch(cls._entry)
+		#
+		# import __main__
+		# setattr(__main__, t.__name__, t)
+		# t.__module__ = "__mp_main__"
+		# globals()[cls._entry.__name__] = cls._entry
+		# qualname = cls._entry.__module__ # f'{cls._entry.__module__}.{cls._entry.__name__}'
+		# cls._entry.__qualname__ = qualname
+		# cls._entry.__module__ = "__main__"
 	
 	def new(self, name, **info):  # register a new entry
 		super().new(name, self._entry(name=name, **info))

@@ -4,6 +4,20 @@ import yaml
 
 from collections import OrderedDict
 
+def monkey_patch(cls, module=None, include_mp=True):
+	if module is None:
+		import __main__
+		module = __main__
+		
+		# try:
+		# 	import __mp_main__
+		# except ImportError:
+		# 	pass
+		# else:
+		# 	monkey_patch(cls, module=__mp_main__)
+	
+	setattr(module, cls.__name__, cls)
+	cls.__module__ = module.__name__
 
 def ordered_load(stream, Loader=yaml.Loader, object_pairs_hook=OrderedDict):
 	class OrderedLoader(Loader):
