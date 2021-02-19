@@ -43,8 +43,8 @@ class Entry_Registry(Registry):
 	def __init_subclass__(cls, components=[]):
 		super().__init_subclass__()
 		# cls._entry = _Entry
-		cls._entry = namedtuple(f'{cls.__name__}_Entry', ['name' ] +components)
-		monkey_patch(cls._entry)
+		cls.entry_cls = namedtuple(f'{cls.__name__}_Entry', ['name'] + components)
+		monkey_patch(cls.entry_cls)
 		#
 		# import __main__
 		# setattr(__main__, t.__name__, t)
@@ -55,7 +55,7 @@ class Entry_Registry(Registry):
 		# cls._entry.__module__ = "__main__"
 	
 	def new(self, name, **info):  # register a new entry
-		super().new(name, self._entry(name=name, **info))
+		super().new(name, self.entry_cls(name=name, **info))
 
 
 
