@@ -1,5 +1,11 @@
 
 
+def multi_index(obj, *inds):
+	if len(inds):
+		idx, *inds = inds
+		return multi_index(obj[idx], *inds)
+	return obj
+
 def safe_self_execute(obj, fn, default='<<short circuit>>',
                       flag='safe execute flag'):
 	if flag in obj.__dict__:

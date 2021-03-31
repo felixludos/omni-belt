@@ -1,5 +1,5 @@
 
-from .flow import safe_self_execute
+from .flow import safe_self_execute, multi_index
 from .logging import get_printer, get_global_setting, get_global_settings, set_global_setting
 from .filesystem import create_dir, crawl, spawn_path_options, load_yaml, save_yaml, \
 	load_csv, load_tsv, load_json, save_json, monkey_patch
