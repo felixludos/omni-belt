@@ -1,6 +1,8 @@
 
 class InitWall:
     def __init__(self, *args, _req_args=(), _req_kwargs={}, **kwargs):
+        # print(_req_args, _req_kwargs)
+        # print(self.__class__.__mro__)
         super().__init__(*_req_args, **_req_kwargs)
 
 
