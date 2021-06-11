@@ -3,7 +3,7 @@
 name = 'omnibelt'
 long_name = 'omni-belt'
 
-version = '0.4.5'
+version = '0.5'
 url = 'https://github.com/felixludos/omni-belt'
 
 description = 'Universal python utilities'
@@ -11,7 +11,7 @@ description = 'Universal python utilities'
 author = 'Felix Leeb'
 author_email = 'felixludos.info@gmail.com'
 
-license = 'GPL3'
+license = 'MIT'
 
 readme = 'README.md'
 
