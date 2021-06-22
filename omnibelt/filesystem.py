@@ -76,6 +76,18 @@ def save_json(data, path):
 
 
 
+def load_txt(path):
+	path = str(path)
+	with open(path, 'r') as f:
+		return f.read()
+
+def save_txt(data, path):
+	path = str(path)
+	with open(path, 'w') as f:
+		return f.write(data)
+
+
+
 def create_dir(directory):
 	if not os.path.exists(directory):
 		os.makedirs(directory)
