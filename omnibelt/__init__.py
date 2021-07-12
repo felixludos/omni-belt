@@ -9,21 +9,20 @@ from .patterns import Singleton, InitSingleton, InitWall
 from .containers import deep_get, Simple_Child, Proper_Child, AttrDict, AttrOrdDict, Value, LoadedValue
 from .registries import Registry, Entry_Registry, Named_Registry
 from .logic import sort_by, resolve_order, toposort
+from .hashing import Hashable
 
-
-from .packing import Packable, primitive, PRIMITIVE, SERIALIZABLE, JSONABLE, pack, unpack, pack_member, unpack_member
+from .packing import Packable, primitive, PRIMITIVE, SERIALIZABLE, JSONABLE, pack, unpack
 from .packing import save_pack, load_pack, json_pack, json_unpack
 from .transactions import Transactionable, AbortTransaction
-from .hashing import Hashable
 from .wrappers import ObjectWrapper
 
 # from .wrappers import ObjectWrapper, Array # causes an error if required libs aren't already installed
-try:
-	import numpy
-except ImportError:
-	pass
-else: # Register additional common packable types
-	from . import common
+# try:
+# 	import numpy
+# except ImportError:
+# 	pass
+# else: # Register additional common packable types
+# 	from . import common
 
 from .basic_containers import adict, tdict, tlist, tset, tstack, tdeque, theap
 from .basic_containers import containerify

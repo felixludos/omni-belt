@@ -3,7 +3,7 @@ from typing import Any
 from wrapt import ObjectProxy
 
 
-from .packing import Packable, pack_member, unpack_member
+from .packing import Packable
 from .transactions import Transactionable
 from .basic_containers import adict, tset, tlist
 
@@ -69,14 +69,14 @@ class ObjectWrapper(Transactionable, Packable, ObjectProxy):
 			self._self_children.remove(value)
 		return super().__delattr__(item)
 	
-	def __unpack__(self, data):
-		obj = self.__build__(data)
+	def __unpack__(self, data, unpack_member):
+		obj = self.__build__(data, unpack_member)
 		
 		self.__init__(obj)
 	
 	# must be overridden
 	
-	def __pack__(self):  # save everything from the internal state
+	def __pack__(self, pack_member):  # save everything from the internal state
 		'''
 		Save all the necessary data from the internal state (and pack any subdata)
 
@@ -84,7 +84,7 @@ class ObjectWrapper(Transactionable, Packable, ObjectProxy):
 		'''
 		raise NotImplementedError
 	
-	def __build__(self, data):
+	def __build__(self, data, unpack_member):
 		'''
 		Recover the wrapped object in the correct state from data and return wrapped object
 
@@ -118,7 +118,7 @@ try:
 			return np.empty(shape, dtype)
 		
 		@staticmethod
-		def __pack__(obj):
+		def __pack__(obj, pack_member):
 			'''
 			Pack the np.array data.
 
@@ -139,7 +139,7 @@ try:
 			return data
 		
 		@staticmethod
-		def __unpack__(obj, data):
+		def __unpack__(obj, data, unpack_member):
 			'''
 			Unpack the data and save the data to the created object
 
@@ -180,7 +180,7 @@ try:
 					if isinstance(el, Transactionable):
 						el.abort()
 		
-		def __pack__(self):
+		def __pack__(self, pack_member):
 			'''
 			Pack data to restore numpy array.
 
@@ -194,7 +194,7 @@ try:
 			
 			return data
 		
-		def __build__(self, data=None):
+		def __build__(self, data, unpack_member):
 			'''
 			Restore state of numpy array by unpacking data
 

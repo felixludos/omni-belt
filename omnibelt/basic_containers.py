@@ -4,7 +4,7 @@ import heapq
 
 from .utils import safe_self_execute
 from .errors import LoadInitFailureError
-from .packing import Packable, pack_member, unpack_member
+from .packing import Packable
 from .transactions import Transactionable
 from .hashing import Hashable
 
@@ -120,7 +120,7 @@ class tdict(Container, OrderedDict):
 	def move_to_end(self, key, last=True):
 		self._data.move_to_end(key, last)
 	
-	def __pack__(self):
+	def __pack__(self, pack_member):
 		
 		data = {}
 		
@@ -144,7 +144,7 @@ class tdict(Container, OrderedDict):
 		
 		return data
 	
-	def __unpack__(self, data):
+	def __unpack__(self, data, unpack_member):
 		
 		# TODO: write warning about overwriting state - which can't be aborted
 		# if self.in_transaction():
@@ -269,14 +269,14 @@ class tlist(Container, list):
 			copy._shadow = self._shadow.copy()
 		return copy
 	
-	def __pack__(self):
+	def __pack__(self, pack_member):
 		state = {}
 		state['_entries'] = [pack_member(elm) for elm in iter(self)]
 		if self.in_transaction():  # TODO: maybe write warning about saving in the middle of a transaction
 			state['_shadow'] = [pack_member(elm) for elm in self._shadow]
 		return state
 	
-	def __unpack__(self, state):
+	def __unpack__(self, state, unpack_member):
 		
 		# TODO: write warning about overwriting state - which can't be aborted
 		# if self.in_transaction():
@@ -438,14 +438,14 @@ class tset(Container, set):
 			copy._shadow = self._shadow.copy()
 		return copy
 	
-	def __pack__(self):
+	def __pack__(self, pack_member):
 		state = {}
 		state['_elements'] = [pack_member(elm) for elm in iter(self)]
 		if self.in_transaction():
 			state['_shadow'] = [pack_member(elm) for elm in self._shadow]
 		return state
 	
-	def __unpack__(self, data):
+	def __unpack__(self, data, unpack_member):
 		
 		# TODO: write warning about overwriting state - which can't be aborted
 		# if self.in_transaction():
@@ -666,14 +666,14 @@ class tdeque(Container, deque):
 			copy._shadow = self._shadow.copy()
 		return copy
 	
-	def __pack__(self):
+	def __pack__(self, pack_member):
 		state = {}
 		state['_entries'] = [pack_member(elm) for elm in iter(self)]
 		if self.in_transaction():  # TODO: maybe write warning about saving in the middle of a transaction
 			state['_shadow'] = [pack_member(elm) for elm in self._shadow]
 		return state
 	
-	def __unpack__(self, state):
+	def __unpack__(self, state, unpack_member):
 		
 		# TODO: write warning about overwriting state - which can't be aborted
 		# if self.in_transaction():
@@ -874,14 +874,14 @@ class theap(Container, object):
 			copy._shadow = self._shadow.copy()
 		return copy
 	
-	def __pack__(self):
+	def __pack__(self, pack_member):
 		state = {}
 		state['_entries'] = [pack_member(elm) for elm in iter(self)]
 		if self.in_transaction():  # TODO: maybe write warning about saving in the middle of a transaction
 			state['_shadow'] = [pack_member(elm) for elm in self._shadow]
 		return state
 	
-	def __unpack__(self, state):
+	def __unpack__(self, state, unpack_member):
 		
 		# TODO: write warning about overwriting state - which can't be aborted
 		# if self.in_transaction():

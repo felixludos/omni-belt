@@ -1,117 +1,165 @@
 
 from typing import Any, Union, Dict, List, Set, Tuple, NoReturn, ClassVar, TextIO, Callable, NewType
 import json
-from collections import namedtuple
+from pathlib import Path
+from collections import namedtuple, OrderedDict
 import time
+from .registries import Entry_Double_Registry
 from .errors import SavableClassCollisionError, ObjectIDReadOnlyError, UnregisteredClassError
+from .logging import get_printer
+
+prt = get_printer(__file__)
 
 primitive = (str, int, float, bool, type(None)) # all json readable and no sub elements
-# all_primitives = , *primitive
-
-py_types = (bytes, complex, range, tuple)
-py_containers = (dict, list, set)
-
-_py_cls2name = {c: c.__name__ for c in (*primitive, *py_types, *py_containers)}
-_py_name2cls = {n: c for c, n in _py_cls2name.items()}
-
-def _full_name(cls: ClassVar) -> str:
-	'''
-	Find the full, unique name of a class by connecting it to the module where is is declared.
-	
-	:param cls: type
-	:return: unique name of the class
-	'''
-	name = str(cls.__name__)
-	module = str(cls.__module__)
-	if module is None:
-		return name
-	return '.'.join([module, name])
+# py_types = (bytes, complex, range, tuple)
+# py_containers = (dict, list, set)
 
 
-_packable_registry = {}
-_packable_cls = {}
-_packable_item = namedtuple('Packable_Item', ['name', 'cls', 'pack_fn', 'create_fn', 'unpack_fn'])
+class MissingEntryError(TypeError):
+	def __init__(self, name=None, cls=None, ancestors=None):
+		msg = []
+		if name is not None:
+			msg.append(f'name={name}')
+		if cls is not None:
+			msg.append(f'cls={cls}')
+		if ancestors is not None:
+			msg.append(f'ancestors={ancestors}')
+		msg = ', '.join(msg)
+		super().__init__(msg)
 
 
-_ref_prefix = '<>'
-def _get_obj_id(obj: 'SERIALIZABLE') -> str:
-	'''
-	Compute the object ID for packing objects, which must be unique and use the reference prefix
+class _Packable_Registry(Entry_Double_Registry, primary_component='name', sister_component='cls',
+                         components=['pack_fn', 'create_fn', 'unpack_fn', 'ancestors']):
+	def new(self, cls, name=None, pack_fn=None, create_fn=None, unpack_fn=None, ancestors=None):
+		''' TODO: update
+		Register a type to be packable. Requires a pack_fn, create_fn, and unpack_fn to store and restore object state.
 
-	:param obj: object to get the reference for
-	:return: unique ID associated with `obj` for packing
-	'''
-	
-	if type(obj) == type:
-		return _get_cls_id(obj)
-	
-	return '{}{}'.format(_ref_prefix, id(obj))
-
-def _get_cls_id(cls: ClassVar) -> str:
-	'''
-	Compute the object ID for packing classes, which must be unique and use the reference prefix
-
-	:param cls: class to be packed
-	:return: unique ID associated with `cls` for packing
-	'''
-	if cls in _packable_cls:
-		name = _packable_cls[cls].name
-	elif cls in _py_cls2name:
-		name = _py_cls2name[cls]
-	else:
-		raise TypeError('Unknown class: {}'.format(cls))
-	
-	return '{}:{}'.format(_ref_prefix, name)
-
-def get_cls(name: str) -> ClassVar:
-	'''
-	Get the registered type from the registered name
-	
-	:param name:
-	:return:
-	'''
-	if name in _py_name2cls:
-		return _py_name2cls[name]
-	
-	try:
-		return _packable_registry[name].cls
-	except KeyError:
-		raise UnregisteredClassError(name)
-
-def get_cls_from_ref(name: str) -> ClassVar:
-	'''
-	Recover the registered type from the reference thereof
-	
-	:param name: reference to a registered type
-	:return: type
-	'''
-	name = name[len(_ref_prefix) + 1:]
-	return get_cls(name)
-
-def register_packable(cls: ClassVar, pack_fn: Callable, create_fn: Callable, unpack_fn: Callable,
-                      name: str = None) -> NoReturn:
-	'''
-	Register a type to be packable. Requires a pack_fn, create_fn, and unpack_fn to store and restore object state.
-	
-	:param cls: type to be registered
-	:param pack_fn: callable input is an instance of the type, and packs all data necessary to recover the state
-	:param create_fn: callable input is the expected type and the packed data, creates a new instance of the type,
-	without unpacking any packed data (to avoid reference loops)
-	:param unpack_fn: callable input is the instance of packed data and then restores that instance to the original
-	state using the packed data by unpacking any values therein.
-	:param name: (optional) name of the class used for storing
-	:return: A `SavableClassCollisionError` if the name is already registered
-	'''
-	
-	if name is None:
-		name = _full_name(cls)
+		:param cls: type to be registered
+		:param pack_fn: callable input is an instance of the type, and packs all data necessary to recover the state
+		:param create_fn: callable input is the expected type and the packed data, creates a new instance of the type,
+		without unpacking any packed data (to avoid reference loops)
+		:param unpack_fn: callable input is the instance of packed data and then restores that instance to the original
+		state using the packed data by unpacking any values therein.
+		:param name: (optional) name of the class used for storing
+		:return: A `SavableClassCollisionError` if the name is already registered
+		'''
 		
-	if name in _packable_cls:
-		raise SavableClassCollisionError(name, cls)
+		if name is None:
+			name = self.full_name(cls)
+			
+		if pack_fn is None:
+			pack_fn = getattr(cls, '__pack__', None)
+		
+		if create_fn is None:
+			create_fn = getattr(cls, '__create__', None)
+		
+		if unpack_fn is None:
+			unpack_fn = getattr(cls, '__unpack__', None)
+		
+		if ancestors is None:
+			ancestors = self._find_ancestors(cls)
+		ancestors = [(parent if parent in self else self.backward()[parent].name)
+		             for parent in ancestors if self.is_known(parent)]
+		
+		return super().new(name=name, cls=cls, ancestors=ancestors,
+		                   pack_fn=pack_fn, create_fn=create_fn, unpack_fn=unpack_fn)
+	
+	def find_nearest(self, name=None, cls=None, ancestors=None):
+		if name is not None and name in self:
+			return self[name]
+		if cls is not None and cls in self.backward():
+			return self.backward()[cls]
+		
+		if ancestors is not None:
+			for ancestor in ancestors:
+				if ancestor in self:
+					return self[ancestor]
+		
+		raise MissingEntryError(name=name, cls=cls, ancestors=ancestors)
+	
+	def _find_ancestors(self, cls):
+		return cls.__mro__[1:]
+	
+	@staticmethod
+	def full_name(cls: ClassVar) -> str:
+		'''
+		Find the full, unique name of a class by connecting it to the module where is is declared.
 
-	item = _packable_item(name, cls, pack_fn, create_fn, unpack_fn)
-	_packable_registry[name] = item
-	_packable_cls[cls] = item
+		:param cls: type
+		:return: unique name of the class
+		'''
+		name = str(cls.__name__)
+		module = str(cls.__module__)
+		if module is None:
+			return name
+		return '.'.join([module, name])
+
+registry = _Packable_Registry()
+# _cls_registry = registry.backward()
+register_packable = registry.new
+
+for _primitive in primitive:
+	register_packable(_primitive)
+
+
+# region Mutable
+
+def _pack_dict(d):
+	return {pack_member(k,force_str=True):pack_member(v) for k,v in d.items()}
+def _unpack_dict(d, x):
+	d.update({unpack_member(k):unpack_member(v) for k, v in x.items()})
+register_packable(dict, ancestors=[],
+             pack_fn=_pack_dict,
+             unpack_fn=_unpack_dict,
+)
+register_packable(OrderedDict,
+             pack_fn=_pack_dict,
+             unpack_fn=_unpack_dict,
+)
+
+def _pack_list(xs):
+	return [pack_member(x) for x in xs]
+def _unpack_list(ls, xs):
+	ls.extend(unpack_member(x) for x in xs)
+register_packable(list, ancestors=[],
+             pack_fn=_pack_list,
+             unpack_fn=_unpack_list,
+)
+register_packable(set, ancestors=[list],
+             pack_fn=_pack_list,
+             unpack_fn=lambda s, xs: s.update(unpack_member(x) for x in xs),
+)
+
+
+
+# endregion
+
+# region Immutable
+
+register_packable(type, name='class', ancestors=[],
+             pack_fn=lambda t: _cls_registry[t] if t in _cls_registry else registry.full_name(t),
+             create_fn=lambda d: registry[d].cls if d in registry else locals().get(d),
+)
+register_packable(tuple, ancestors=[list],
+             pack_fn=_pack_list,
+             create_fn=lambda xs: tuple(unpack_member(x) for x in xs),
+)
+register_packable(complex, ancestors=[dict],
+             pack_fn=lambda c: [pack_member(c.real), pack_member(c.imag)],
+             create_fn=lambda data: complex(unpack_member(data[0]), unpack_member(data[1])),
+)
+register_packable(range, ancestors=[dict],
+             pack_fn=lambda r: {'start':pack_member(r.start), 'stop':pack_member(r.stop), 'step':pack_member(r.step)},
+             create_fn=lambda data: range(start=unpack_member(data['start']), stop=unpack_member(data['stop']),
+                                          step=unpack_member(data['step'])),
+)
+register_packable(bytes, ancestors=[str],
+             pack_fn=lambda b: b.decode(),
+             create_fn=lambda s: s.encode('latin1'),
+)
+
+# endregion
+
 
 class Packable(object):
 	'''
@@ -132,7 +180,8 @@ class Packable(object):
 		if use_cls is None:
 			use_cls = cls
 		
-		register_packable(use_cls, cls.__pack__, cls.__create__, cls.__unpack__, name=name)
+		register_packable(use_cls, name=name)
+
 
 	def __deepcopy__(self, memodict: Dict[Any,Any] = None) -> Any:
 		'''
@@ -142,6 +191,7 @@ class Packable(object):
 		:return: A deep copy of self
 		'''
 		return unpack(pack(self))
+	
 	
 	@classmethod
 	def __create__(cls, data: Dict[str, 'PACKED']) -> 'Packable':
@@ -154,7 +204,8 @@ class Packable(object):
 		'''
 		return cls.__new__(cls)
 	
-	def __pack__(self) -> Dict[str,'PACKED']:
+	
+	def __pack__(self, pack_member: Callable) -> Dict[str,'PACKED']:
 		'''
 		Collect all data in self necessary to store the state.
 		
@@ -163,9 +214,11 @@ class Packable(object):
 		
 		:return: A dict of packed data necessary to recover the state of self
 		'''
-		raise NotImplementedError
+		return {pack_member(k, force_str=True): pack_member(v) for k,v in self.__dict__.items()}
+		# raise NotImplementedError
 	
-	def __unpack__(self, data: Dict[str, 'PACKED']) -> NoReturn:
+	
+	def __unpack__(self, data: Dict[str, 'PACKED'], unpack_member: Callable) -> NoReturn:
 		'''
 		Using `data`, recover the packed state.
 		Must be overridden by all subclasses.
@@ -176,7 +229,8 @@ class Packable(object):
 		:param data: The information that is returned by `__pack__`.
 		:return: Nothing. Once returned, the object should be in the same state as when it was packed
 		'''
-		raise NotImplementedError
+		self.__dict__.update({unpack_member(k): unpack_member(v) for k, v in data.items()})
+		# raise NotImplementedError
 
 
 PRIMITIVE = Union[primitive]
@@ -199,184 +253,199 @@ JSONABLE = NewType('JSONABLE', object)
 PACKED = NewType('PACKED', object)
 
 
-_ref_table = None
-_obj_table = None
 
-def pack_member(obj: 'SERIALIZABLE', force_str: bool = False) -> PACKED:
-	'''
-	Store the object state by packing it, possibly returning a reference.
-	
-	This function should be called inside implemented __pack__ on all data in an object necessary to restore
-	the object state.
-	
-	Note: this function should not be called on the top level (use `pack` instead).
-	
-	:param obj: serializable data that should be packed
-	:param force_str: if the data is a key for a dict, set this to true to ensure the key is a str
-	:return: packed data
-	'''
-	if isinstance(obj, primitive):
-		if (isinstance(obj, str) and obj.startswith(_ref_prefix)) or (not isinstance(obj, str) and force_str):
-			ref = _get_obj_id(obj)
-			_ref_table[ref] = {'_type': _py_cls2name[type(obj)], '_data': obj}
-		elif force_str and not isinstance(obj, str):
-			ref = _get_obj_id(obj)
-			_ref_table[ref] = {'_type': _py_cls2name[type(obj)], '_data': obj}
-		else:
-			return obj
-	else:
-		ref = _get_obj_id(obj)
-		typ = type(obj)
-
-		if ref in _ref_table or typ == type:
-			return ref
-		data = {}
-		_ref_table[ref] = data  # create entry in refs to stop reference loops
-		if typ in _packable_cls:
-			info = _packable_cls[typ]
-
-			data['_type'] = info.name
-			data['_data'] = info.pack_fn(obj)
-
-		elif typ in _py_cls2name:  # known python types
-			if typ == dict:
-				data['_data'] = {pack_member(k, force_str=True): pack_member(v) for k, v in obj.items()}
-			elif typ == range:
-				data['_data'] = {'start': obj.start, 'stop': obj.stop, 'step': obj.step}
-			elif typ == complex:
-				data['_data'] = [obj.real, obj.imag]
-			elif typ == bytes:
-				data['_data'] = obj.decode('latin1')
-			else:
-				data['_data'] = [pack_member(x) for x in obj]
-			data['_type'] = _py_cls2name[typ]
-		else:
-			raise TypeError('Unrecognized type: {}'.format(type(obj)))
-	
-	return ref
-
-def unpack_member(data: 'PACKED') -> 'SERIALIZABLE':
-	'''
-	Restore the object data by unpacking it.
-	
-	This function should be called inside implemented __unpack__ on all data in an object necessary to restore
-	the object state from the packed data.
-	
-	Note: this function should not be called on the top level (use `unpack` instead).
-	
-	:param data: packed data that should be unpacked
-	:return: unpacked data to restore the state
-	'''
-
-	if isinstance(data, str) and data.startswith(_ref_prefix):  # reference or class
-
-		if ':' in data:  # class
-			return get_cls_from_ref(data)
+class Packer:
+	def __init__(self, key_prefix='!', ref_prefix='$'):
+		self.key_prefix = key_prefix
+		self.ref_prefix = ref_prefix
+		self.reset()
 		
-		elif data in _obj_table:  # reference
-			return _obj_table[data]
+		
+	def reset(self):
+		self.ref_table = {}
+		self.obj_table = {}
+		self.ancestry = {}
+		self.corrections = []
+	
+	
+	def make_obj_ref(self, obj: SERIALIZABLE) -> str:
+		'''
+		Compute the object ID for packing objects, which must be unique and use the reference prefix
 
+		:param obj: object to get the reference for
+		:return: unique ID associated with `obj` for packing
+		'''
+		return f'{self.ref_prefix}{hex(id(obj))[2:]}'
+	
+	
+	def find_nearest(self, name=None, cls=None, ancestors=None):
+		return registry.find_nearest(name=name, cls=cls, ancestors=ancestors)
+		
+	
+	def pack_member(self, obj: SERIALIZABLE, force_str: bool = False) -> PACKED:
+		'''
+		Store the object state by packing it, possibly returning a reference.
+		
+		This function should be called inside implemented __pack__ on all data in an object necessary to restore
+		the object state.
+		
+		Note: this function should not be called on the top level (use `pack` instead).
+		
+		:param obj: serializable data that should be packed
+		:param force_str: if the data is a key for a dict, set this to true to ensure the key is a str
+		:return: packed data
+		'''
+		if isinstance(obj, primitive):
+			if (isinstance(obj, str) and obj.startswith(self.ref_prefix)) or (not isinstance(obj, str) and force_str):
+				ref = self.make_obj_ref(obj)
+				self.ref_table[ref] = {f'{self.key_prefix}type': self.find_nearest(cls=type(obj)).name,
+				                       f'{self.key_prefix}data': obj}
+			else:
+				return obj
 		else:
-			ref = data
-			typname = _ref_table[ref]['_type']
-			data = _ref_table[ref]['_data']
-			item = None
+			ref = self.make_obj_ref(obj)
+			typ = type(obj)
+	
+			if ref in self.ref_table:
+				return ref
+			data = {}
+			self.ref_table[ref] = data  # create entry in refs to stop reference loops
 			
-			if typname in {'str', 'int', 'float', 'bool'}:
-				obj = data
-			elif typname == 'tuple':  # since tuples are immutable they have to created right away (no loop issues)
-				obj = tuple(unpack_member(x) for x in data)
-			elif typname == 'range':
-				obj = range(data['start'], data['stop'], data['step'])
-			elif typname == 'bytes':
-				obj = data.encode('latin1')
-			elif typname == 'complex':
-				obj = complex(*data)
-			elif typname in _py_name2cls:
-				obj = _py_name2cls[typname]()
-			else:  # must be an instance of Packable
-				item = _packable_registry[typname]
-				obj = item.create_fn(data)
+			info = self.find_nearest(cls=typ)
+			self.ancestry[info.name] = info.ancestors
+			data[f'{self.key_prefix}type'] = info.name
+			data[f'{self.key_prefix}data'] = obj if info.pack_fn is None else info.pack_fn(obj, self.pack_member)
+		
+		return ref
+
+
+	def unpack_member(self, data: PACKED) -> SERIALIZABLE:
+		'''
+		Restore the object data by unpacking it.
+		
+		This function should be called inside implemented __unpack__ on all data in an object necessary to restore
+		the object state from the packed data.
+		
+		Note: this function should not be called on the top level (use `unpack` instead).
+		
+		:param data: packed data that should be unpacked
+		:return: unpacked data to restore the state
+		'''
+	
+		if isinstance(data, str) and data.startswith(self.ref_prefix):  # reference or class
+			if data in self.obj_table: # known reference
+				return self.obj_table[data]
+	
+			ref = data
+			typname = self.ref_table[ref][f'{self.key_prefix}type']
+			data = self.ref_table[ref][f'{self.key_prefix}data']
+			
+			info = self.find_nearest(name=typname, ancestors=self.ancestry.get(typname, None))
+			
+			if info.create_fn is None and info.unpack_fn is None:
+				obj = info.cls(data)
+			elif info.create_fn is None:
+				obj = info.cls()
+			else:
+				obj = info.create_fn(data)
 				
-			del _ref_table[ref]
-			_obj_table[ref] = obj
+			del self.ref_table[ref]
+			self.obj_table[ref] = obj
+			
+			if info.unpack_fn is not None:
+				info.unpack_fn(obj, data, self.unpack_member)
+				
+			if self.corrections is not None and info.name != typname:
+				self.corrections.append({'expected': typname, 'used': info.name, 'obj': obj})
+			
+		else:
+			assert isinstance(data, primitive), f'{type(data)}, {data}'
+			obj = data
+		
+		return obj
 
-			# after adding empty obj to obj table, populate obj with state from data
-			if typname == 'dict':
-				obj.update({unpack_member(k): unpack_member(v) for k, v in data.items()})
-			elif typname == 'set':
-				obj.update(unpack_member(x) for x in data)
-			elif typname == 'list':
-				obj.extend(unpack_member(x) for x in data)
-			elif item is not None:
-				item.unpack_fn(obj, data)
-	else:
-		assert isinstance(data, primitive), '{}, {}'.format(type(data), data)
-		obj = data
 	
-	return obj
-
-def pack(obj: 'SERIALIZABLE', meta: Dict[str, 'PACKED'] = None, include_timestamp: bool = False) -> 'JSONABLE':
-	'''
-	Serializes any object, returning a json object that can be converted to a json string.
+	def pack(self, obj: SERIALIZABLE, meta: Dict[str, PACKED] = None, include_timestamp: bool = False) -> JSONABLE:
+		'''
+		Serializes any object, returning a json object that can be converted to a json string.
+		
+		:param obj: Object to be serialized
+		:param meta: Meta information, must be jsonable
+		:param include_timestamp: include a timestamp in the meta information
+		:return: packed data, which can be converted to a json string using json.dumps
+		'''
+		self.reset()
 	
-	:param obj: Object to be serialized
-	:param meta: Meta information, must be jsonable
-	:param include_timestamp: include a timestamp in the meta information
-	:return: packed data, which can be converted to a json string using json.dumps
-	'''
-	global _ref_table
-	_ref_table = {}
-
-	try:
-		out = pack_member(obj)
-
-		# additional meta info
-		if meta is None:
-			meta = {}
-		if include_timestamp:
-			meta['timestamp'] = time.strftime('%Y-%m-%d_%H%M%S')
-
-		data = {
-			'table': _ref_table,
-			'meta': meta,
-			'head': out, # save parent object separately
-		}
-
-	except Exception as e:
-		raise e
-	finally:
-		_ref_table = None
-
-	return data
-
-def unpack(data: 'PACKED', return_meta: bool = False) -> 'SERIALIZABLE':
-	'''
-	Deserialize a packed object to recover the original state.
+		try:
+			out = self.pack_member(obj)
 	
-	:param data: serialized (packed) state of an object
-	:param return_meta: return any meta information from the serialized data
-	:return: the unpacked (restored) object
-	'''
-	# add the current cls.__ID_counter to all loaded objs
-	global _ref_table, _obj_table
-	_ref_table = data['table'].copy()
-	_obj_table = {}
+			# additional meta info
+			if meta is None:
+				meta = {}
+			if include_timestamp:
+				meta['timestamp'] = time.strftime('%Y-%m-%d_%H%M%S')
+	
+			data = {
+				'table': self.ref_table,
+				'ancestry': self.ancestry,
+				'meta': meta,
+				'head': out, # save parent object separately
+			}
+	
+		except Exception as e:
+			raise e
 
-	try:
-		obj = unpack_member(data['head'])
-	except Exception as e:
-		raise e
-	finally:
-		_ref_table = None
-		_obj_table = None
+		return data
+	
+	
+	def unpack(self, data: PACKED, return_meta: bool = False, return_corrections: bool = False,
+	           allow_ancestors: bool = True) -> SERIALIZABLE:
+		'''
+		Deserialize a packed object to recover the original state.
+		
+		:param data: serialized (packed) state of an object
+		:param return_meta: return any meta information from the serialized data
+		:return: the unpacked (restored) object
+		'''
+		self.reset()
+		self.ref_table = data.get('table', {})
+		self.ancestry = data.get('ancestry', {}) if allow_ancestors else {}
+	
+		try:
+			obj = self.unpack_member(data['head'])
+		except Exception as e:
+			raise e
+	
+		out = [obj]
+		
+		if allow_ancestors and return_corrections:
+			out.append(self.corrections)
+		if return_meta:
+			out.append(data.get('meta', None))
+	
+		if len(out) > 1:
+			return out
+		return out[0]
 
-	if return_meta:
-		return obj, data['meta']
-	return obj
 
 
-def save_pack(obj: 'SERIALIZABLE', fp: TextIO, meta: Dict[str, 'JSONABLE'] = None,
+def pack(obj: SERIALIZABLE, meta: Dict[str, PACKED] = None, include_timestamp: bool = False,
+         packer: Union[Packer, None] = None) -> JSONABLE:
+	if packer is None:
+		packer = Packer()
+	return packer.pack(obj, meta=meta, include_timestamp=include_timestamp)
+	
+	
+	
+def unpack(data: PACKED, return_meta: bool = False, return_corrections: bool = False,
+           allow_ancestors: bool = True, packer: Union[Packer, None] = None) -> SERIALIZABLE:
+	if packer is None:
+		packer = Packer()
+	return packer.unpack(data, return_meta=return_meta, return_corrections=return_corrections)
+
+
+
+def save_pack(obj: SERIALIZABLE, fp: Union[TextIO, str, Path], meta: Dict[str, JSONABLE] = None,
               include_timestamp: bool = False) -> NoReturn:
 	'''
 	Pack (serialize) the object and store it as a json file
@@ -386,9 +455,14 @@ def save_pack(obj: 'SERIALIZABLE', fp: TextIO, meta: Dict[str, 'JSONABLE'] = Non
 	:param include_timestamp: include timestamp in meta information
 	:return: None
 	'''
+	if isinstance(fp, (str, Path)):
+		fp = open(str(fp), 'w')
 	return json.dump(pack(obj, meta=meta, include_timestamp=include_timestamp), fp)
 
-def load_pack(fp: TextIO, return_meta: bool = False) -> 'SERIALIZABLE':
+
+
+def load_pack(fp: Union[TextIO, str, Path], return_meta: bool = False, return_corrections: bool = False,
+                allow_ancestors: bool = True) -> SERIALIZABLE:
 	'''
 	Loads json file of packed object and unpacks the object
 	
@@ -396,10 +470,14 @@ def load_pack(fp: TextIO, return_meta: bool = False) -> 'SERIALIZABLE':
 	:param return_meta: return the meta information stored
 	:return: unpacked object from json file
 	'''
-	return unpack(json.load(fp), return_meta=return_meta)
+	if isinstance(fp, (str, Path)):
+		fp = open(str(fp), 'r')
+	return unpack(json.load(fp), return_meta=return_meta, return_corrections=return_corrections,
+	              allow_ancestors=allow_ancestors)
 
 
-def json_pack(obj: 'SERIALIZABLE', meta: Dict[str, 'JSONABLE'] = None, include_timestamp:bool = False) -> str:
+
+def json_pack(obj: SERIALIZABLE, meta: Dict[str, JSONABLE] = None, include_timestamp:bool = False) -> str:
 	'''
 	Pack object and return a json string of the serialized object
 	
@@ -410,7 +488,10 @@ def json_pack(obj: 'SERIALIZABLE', meta: Dict[str, 'JSONABLE'] = None, include_t
 	'''
 	return json.dumps(pack(obj, meta=meta, include_timestamp=include_timestamp))
 
-def json_unpack(data: str, return_meta: bool = False) -> 'SERIALIZABLE':
+
+
+def json_unpack(data: str, return_meta: bool = False, return_corrections: bool = False,
+                allow_ancestors: bool = True) -> SERIALIZABLE:
 	'''
 	Unpack json string of a packed object.
 	
@@ -418,4 +499,8 @@ def json_unpack(data: str, return_meta: bool = False) -> 'SERIALIZABLE':
 	:param return_meta: return meta information
 	:return: unpacked object
 	'''
-	return unpack(json.loads(data), return_meta=return_meta)
+	return unpack(json.loads(data), return_meta=return_meta, return_corrections=return_corrections,
+	              allow_ancestors=allow_ancestors)
+
+
+

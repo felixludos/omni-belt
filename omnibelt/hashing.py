@@ -1,7 +1,4 @@
 
-
-
-
 class Hashable(object):
 	'''Mixin to allow hashing'''
 	
