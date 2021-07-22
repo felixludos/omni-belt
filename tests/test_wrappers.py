@@ -2,8 +2,8 @@
 import numpy as np
 
 from _util_test import get_adict
-from humpack import json_pack, json_unpack
-from humpack.wrappers import Array
+from omnibelt import json_pack, json_unpack
+from omnibelt.wrappers import Array
 
 def test_numpy_wrapper():
 	

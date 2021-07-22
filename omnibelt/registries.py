@@ -2,7 +2,6 @@
 from collections import OrderedDict, namedtuple
 
 from .logging import get_printer
-from .filesystem import monkey_patch
 
 prt = get_printer(__name__)
 

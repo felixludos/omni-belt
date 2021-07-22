@@ -1,4 +1,4 @@
-from humpack import pack, unpack, json_unpack, json_pack
+from omnibelt import pack, unpack, json_unpack, json_pack
 from _util_test import get_adict
 
 

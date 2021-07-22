@@ -1,6 +1,6 @@
 
 from .flow import safe_self_execute, multi_index
-from .logging import get_printer, get_global_setting, get_global_settings, set_global_setting
+from .logging import get_printer, get_global_setting, get_global_settings, set_global_setting, set_printer_setting
 from .filesystem import create_dir, crawl, spawn_path_options, load_yaml, save_yaml, \
 	load_csv, load_tsv, load_json, save_json, monkey_patch, load_txt, save_txt
 from .typing import primitives, unspecified_argument
@@ -13,6 +13,8 @@ from .hashing import Hashable
 
 from .packing import Packable, primitive, PRIMITIVE, SERIALIZABLE, JSONABLE, pack, unpack
 from .packing import save_pack, load_pack, json_pack, json_unpack
+# from .pure_packing import pack, unpack, json_unpack, json_pack
+
 from .transactions import Transactionable, AbortTransaction
 from .wrappers import ObjectWrapper
 

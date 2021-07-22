@@ -1,4 +1,4 @@
-from humpack import adict, tdict, tlist, tset
+from omnibelt import adict, tdict, tlist, tset
 
 def get_adict():
 	x = adict()

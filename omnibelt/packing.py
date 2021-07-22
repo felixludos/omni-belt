@@ -4,8 +4,11 @@ import json
 from pathlib import Path
 from collections import namedtuple, OrderedDict
 import time
+
+import copy
+
 from .registries import Entry_Double_Registry
-from .errors import SavableClassCollisionError, ObjectIDReadOnlyError, UnregisteredClassError
+# from .errors import SavableClassCollisionError, ObjectIDReadOnlyError, UnregisteredClassError
 from .logging import get_printer
 
 prt = get_printer(__file__)
@@ -28,8 +31,15 @@ class MissingEntryError(TypeError):
 		super().__init__(msg)
 
 
-class _Packable_Registry(Entry_Double_Registry, primary_component='name', sister_component='cls',
-                         components=['pack_fn', 'create_fn', 'unpack_fn', 'ancestors']):
+
+class Packable_Registry(Entry_Double_Registry, primary_component='name', sister_component='cls',
+                        components=['pack_fn', 'create_fn', 'unpack_fn', 'ancestors']):
+	
+	_pack_fn_name = '__pack__'
+	_unpack_fn_name = '__unpack__'
+	_create_fn_name = '__create__'
+	
+	
 	def new(self, cls, name=None, pack_fn=None, create_fn=None, unpack_fn=None, ancestors=None):
 		''' TODO: update
 		Register a type to be packable. Requires a pack_fn, create_fn, and unpack_fn to store and restore object state.
@@ -48,13 +58,15 @@ class _Packable_Registry(Entry_Double_Registry, primary_component='name', sister
 			name = self.full_name(cls)
 			
 		if pack_fn is None:
-			pack_fn = getattr(cls, '__pack__', None)
+			pack_fn = getattr(cls, self._pack_fn_name, None)
 		
 		if create_fn is None:
-			create_fn = getattr(cls, '__create__', None)
+			create_fn = getattr(cls, self._create_fn_name, None)
+			if create_fn is not None:
+				create_fn = create_fn.__func__
 		
 		if unpack_fn is None:
-			unpack_fn = getattr(cls, '__unpack__', None)
+			unpack_fn = getattr(cls, self._unpack_fn_name, None)
 		
 		if ancestors is None:
 			ancestors = self._find_ancestors(cls)
@@ -63,6 +75,7 @@ class _Packable_Registry(Entry_Double_Registry, primary_component='name', sister
 		
 		return super().new(name=name, cls=cls, ancestors=ancestors,
 		                   pack_fn=pack_fn, create_fn=create_fn, unpack_fn=unpack_fn)
+	
 	
 	def find_nearest(self, name=None, cls=None, ancestors=None):
 		if name is not None and name in self:
@@ -77,8 +90,10 @@ class _Packable_Registry(Entry_Double_Registry, primary_component='name', sister
 		
 		raise MissingEntryError(name=name, cls=cls, ancestors=ancestors)
 	
+	
 	def _find_ancestors(self, cls):
 		return cls.__mro__[1:]
+	
 	
 	@staticmethod
 	def full_name(cls: ClassVar) -> str:
@@ -94,19 +109,28 @@ class _Packable_Registry(Entry_Double_Registry, primary_component='name', sister
 			return name
 		return '.'.join([module, name])
 
-registry = _Packable_Registry()
-# _cls_registry = registry.backward()
+
+
+registry = Packable_Registry()
 register_packable = registry.new
 
+def as_packable(name=None, ancestors=None, pack_fn=None, create_fn=None, unpack_fn=None):
+	def _reg_pack(cls):
+		register_packable(name=name, cls=cls, ancestors=ancestors,
+                pack_fn=pack_fn, create_fn=create_fn, unpack_fn=unpack_fn)
+		return cls
+	return _reg_pack
+
+
 for _primitive in primitive:
-	register_packable(_primitive)
+	register_packable(_primitive, create_fn=lambda _, d, __, ___: d)
 
 
 # region Mutable
 
-def _pack_dict(d):
+def _pack_dict(d, pack_member):
 	return {pack_member(k,force_str=True):pack_member(v) for k,v in d.items()}
-def _unpack_dict(d, x):
+def _unpack_dict(d, x, o, unpack_member):
 	d.update({unpack_member(k):unpack_member(v) for k, v in x.items()})
 register_packable(dict, ancestors=[],
              pack_fn=_pack_dict,
@@ -117,9 +141,9 @@ register_packable(OrderedDict,
              unpack_fn=_unpack_dict,
 )
 
-def _pack_list(xs):
+def _pack_list(xs, pack_member):
 	return [pack_member(x) for x in xs]
-def _unpack_list(ls, xs):
+def _unpack_list(ls, xs, o, unpack_member):
 	ls.extend(unpack_member(x) for x in xs)
 register_packable(list, ancestors=[],
              pack_fn=_pack_list,
@@ -127,35 +151,34 @@ register_packable(list, ancestors=[],
 )
 register_packable(set, ancestors=[list],
              pack_fn=_pack_list,
-             unpack_fn=lambda s, xs: s.update(unpack_member(x) for x in xs),
+             unpack_fn=lambda s, xs, _, unpack_member: s.update(unpack_member(x) for x in xs),
 )
-
-
 
 # endregion
 
 # region Immutable
 
 register_packable(type, name='class', ancestors=[],
-             pack_fn=lambda t: _cls_registry[t] if t in _cls_registry else registry.full_name(t),
-             create_fn=lambda d: registry[d].cls if d in registry else locals().get(d),
+             pack_fn=lambda t, _: registry.backward()[t].name if t in registry.backward() else registry.full_name(t),
+             create_fn=lambda _, d, __, ___: registry[d].cls if d in registry else locals().get(d),
+                  # TODO check ancestry for nearest
 )
 register_packable(tuple, ancestors=[list],
              pack_fn=_pack_list,
-             create_fn=lambda xs: tuple(unpack_member(x) for x in xs),
+             create_fn=lambda _, xs, __, ___: tuple(unpack_member(x) for x in xs),
 )
 register_packable(complex, ancestors=[dict],
-             pack_fn=lambda c: [pack_member(c.real), pack_member(c.imag)],
-             create_fn=lambda data: complex(unpack_member(data[0]), unpack_member(data[1])),
+             pack_fn=lambda c, _: [pack_member(c.real), pack_member(c.imag)],
+             create_fn=lambda _, data, __, ___: complex(unpack_member(data[0]), unpack_member(data[1])),
 )
 register_packable(range, ancestors=[dict],
-             pack_fn=lambda r: {'start':pack_member(r.start), 'stop':pack_member(r.stop), 'step':pack_member(r.step)},
-             create_fn=lambda data: range(start=unpack_member(data['start']), stop=unpack_member(data['stop']),
+             pack_fn=lambda r, _: {'start':pack_member(r.start), 'stop':pack_member(r.stop), 'step':pack_member(r.step)},
+             create_fn=lambda _, data, __, ___: range(start=unpack_member(data['start']), stop=unpack_member(data['stop']),
                                           step=unpack_member(data['step'])),
 )
 register_packable(bytes, ancestors=[str],
-             pack_fn=lambda b: b.decode(),
-             create_fn=lambda s: s.encode('latin1'),
+             pack_fn=lambda b, _: b.decode(),
+             create_fn=lambda _, s, __, ___: s.encode('latin1'),
 )
 
 # endregion
@@ -194,7 +217,7 @@ class Packable(object):
 	
 	
 	@classmethod
-	def __create__(cls, data: Dict[str, 'PACKED']) -> 'Packable':
+	def __create__(cls, data: Dict[str, 'PACKED'], original: str, unpack_member: Callable) -> 'Packable':
 		'''
 		Create the object without loading the state from data. You can use the data to inform how
 		to initialize the object, however no stored objects should be unpacked (to avoid reference loops)
@@ -215,10 +238,9 @@ class Packable(object):
 		:return: A dict of packed data necessary to recover the state of self
 		'''
 		return {pack_member(k, force_str=True): pack_member(v) for k,v in self.__dict__.items()}
-		# raise NotImplementedError
 	
 	
-	def __unpack__(self, data: Dict[str, 'PACKED'], unpack_member: Callable) -> NoReturn:
+	def __unpack__(self, data: Dict[str, 'PACKED'], original: str, unpack_member: Callable) -> NoReturn:
 		'''
 		Using `data`, recover the packed state.
 		Must be overridden by all subclasses.
@@ -230,7 +252,7 @@ class Packable(object):
 		:return: Nothing. Once returned, the object should be in the same state as when it was packed
 		'''
 		self.__dict__.update({unpack_member(k): unpack_member(v) for k, v in data.items()})
-		# raise NotImplementedError
+
 
 
 PRIMITIVE = Union[primitive]
@@ -314,11 +336,11 @@ class Packer:
 			info = self.find_nearest(cls=typ)
 			self.ancestry[info.name] = info.ancestors
 			data[f'{self.key_prefix}type'] = info.name
-			data[f'{self.key_prefix}data'] = obj if info.pack_fn is None else info.pack_fn(obj, self.pack_member)
+			data[f'{self.key_prefix}data'] = self._dispatch_pack(info, obj)
 		
 		return ref
-
-
+	
+	
 	def unpack_member(self, data: PACKED) -> SERIALIZABLE:
 		'''
 		Restore the object data by unpacking it.
@@ -342,27 +364,41 @@ class Packer:
 			
 			info = self.find_nearest(name=typname, ancestors=self.ancestry.get(typname, None))
 			
-			if info.create_fn is None and info.unpack_fn is None:
-				obj = info.cls(data)
-			elif info.create_fn is None:
-				obj = info.cls()
-			else:
-				obj = info.create_fn(data)
-				
+			obj = self._dispatch_create(info, data, typname)
+			
 			del self.ref_table[ref]
 			self.obj_table[ref] = obj
 			
-			if info.unpack_fn is not None:
-				info.unpack_fn(obj, data, self.unpack_member)
-				
+			self._dispatch_unpack(info, obj, data, typname)
+			
 			if self.corrections is not None and info.name != typname:
 				self.corrections.append({'expected': typname, 'used': info.name, 'obj': obj})
 			
 		else:
-			assert isinstance(data, primitive), f'{type(data)}, {data}'
-			obj = data
+			info = self.find_nearest(cls=type(data))
+			
+			obj = self._dispatch_create(info, data)
+			self._dispatch_unpack(info, obj, data)
+			
 		
 		return obj
+
+
+	def _dispatch_pack(self, entry, obj):
+		return obj if entry.pack_fn is None else entry.pack_fn(obj, self.pack_member)
+	
+	
+	def _dispatch_create(self, entry, data, original=None):
+		if entry.create_fn is None and entry.unpack_fn is None:
+			return entry.cls(data)
+		elif entry.create_fn is None:
+			return entry.cls()
+		return entry.create_fn(entry.cls, data, original, self.unpack_member)
+	
+	
+	def _dispatch_unpack(self, entry, obj, data, original=None):
+		if entry.unpack_fn is not None:
+			return entry.unpack_fn(obj, data, original, self.unpack_member)
 
 	
 	def pack(self, obj: SERIALIZABLE, meta: Dict[str, PACKED] = None, include_timestamp: bool = False) -> JSONABLE:
@@ -438,9 +474,12 @@ def pack(obj: SERIALIZABLE, meta: Dict[str, PACKED] = None, include_timestamp: b
 	
 	
 def unpack(data: PACKED, return_meta: bool = False, return_corrections: bool = False,
-           allow_ancestors: bool = True, packer: Union[Packer, None] = None) -> SERIALIZABLE:
+           allow_ancestors: bool = True, packer: Union[Packer, None] = None,
+           skip_deepcopy: bool = False) -> SERIALIZABLE:
 	if packer is None:
 		packer = Packer()
+	if not skip_deepcopy:
+		data = json.loads(json.dumps(data))
 	return packer.unpack(data, return_meta=return_meta, return_corrections=return_corrections)
 
 

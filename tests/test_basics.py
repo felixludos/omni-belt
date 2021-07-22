@@ -1,6 +1,6 @@
 
 from _util_test import get_adict
-from humpack import adict, tdict, tlist, tset
+from omnibelt import adict, tdict, tlist, tset
 
 
 def test_init():

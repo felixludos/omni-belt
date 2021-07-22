@@ -19,7 +19,31 @@ global_settings = {  # primarily for logging
 	
 }
 
-_printers = []
+# _printers = []
+
+def set_printer_setting(level=None, format=None, formatter=None):
+	
+	logger = logging.getLogger()
+	
+	if level is not None:
+		logger.setLevel(log_levels[level] if level in log_levels else level)
+	
+	if format is not None and formatter is None:  # default formatter
+		formatter = logging.Formatter(format)
+	
+	if not len(logger.handlers):
+		stream_handler = logging.StreamHandler()
+		stream_handler.setFormatter(formatter)
+		logger.addHandler(stream_handler)
+	
+	if formatter is not None:
+		logger.handlers[0].setFormatter(formatter)
+	
+	return logger
+	
+
+set_printer_setting(level=global_settings['level'], format=global_settings['format'])
+
 
 def get_printer(name, level=None, format=None, formatter=None,
 
@@ -50,59 +74,61 @@ def get_printer(name, level=None, format=None, formatter=None,
 	:return:
 	'''
 	
-	if include_stream is None:
-		include_stream = global_settings['stream']
-	if no_file is None:
-		no_file = 'logfile' in global_settings and global_settings['logfile'] is not None
+	# if include_stream is None:
+	# 	include_stream = global_settings['stream']
+	# if no_file is None:
+	# 	no_file = 'logfile' in global_settings and global_settings['logfile'] is not None
 	
-	assert not no_file or include_stream, 'Not logging anywhere'
+	# assert not no_file or include_stream, 'Not logging anywhere'
 	
 	logger = logging.getLogger(name)
 	
-	if level is None:
-		level = global_settings['level']
+	# if level is None:
+	# 	level = global_settings['level']
 	
-	logger.setLevel(log_levels[level] if level in log_levels else level)
+	if level is not None:
+		logger.setLevel(log_levels[level] if level in log_levels else level)
 	
-	if format is None:  # default formatter
-		format = global_settings['format']
-	if formatter is None:
+	if format is not None:
 		formatter = logging.Formatter(format)
+	
+	# if format is None:  # default formatter
+	# 	format = global_settings['format']
+	# if formatter is None:
+	# 	formatter = logging.Formatter(format)
 	
 	if filepath is None and 'logfile' in global_settings and global_settings['logfile'] is not None:
 		filepath = global_settings['logfile']
 	
-	if file_handler is None and not no_file and filepath is not None:  # create default file_handler
-		
-		if fileformatter is None:
-			fileformatter = formatter
-		
-		if filelevel is None:
-			filelevel = level
-		
+	if filepath is not None:
 		file_handler = logging.FileHandler(filepath)
-		file_handler.setLevel(log_levels[filelevel] if filelevel in log_levels else filelevel)
-		file_handler.setFormatter(fileformatter)
-	
 	if file_handler is not None:
+		if level is not None:
+			filelevel = level
+		if formatter is not None:
+			fileformatter = formatter
+		if filelevel is not None:
+			file_handler.setLevel(log_levels[filelevel] if filelevel in log_levels else filelevel)
+		if fileformatter is not None:
+			file_handler.setFormatter(fileformatter)
 		logger.addHandler(file_handler)
 	
-	if stream_handler is None and include_stream:  # create default stream_handler
-		
-		if stream_level is None:
-			stream_level = level
-		
-		if stream_formatter is None:
-			stream_formatter = formatter
-		
-		stream_handler = logging.StreamHandler()
-		stream_handler.setLevel(log_levels[stream_level] if stream_level in log_levels else stream_level)
-		stream_handler.setFormatter(stream_formatter)
+	# if stream_handler is None and include_stream:  # create default stream_handler
+	#
+	# 	if stream_level is None:
+	# 		stream_level = level
+	#
+	# 	if stream_formatter is None:
+	# 		stream_formatter = formatter
+	#
+	# 	stream_handler = logging.StreamHandler()
+	# 	stream_handler.setLevel(log_levels[stream_level] if stream_level in log_levels else stream_level)
+	# 	stream_handler.setFormatter(stream_formatter)
+	#
+	# if stream_handler is not None:
+	# 	logger.addHandler(stream_handler)
 	
-	if stream_handler is not None:
-		logger.addHandler(stream_handler)
-	
-	_printers.append(logger)
+	# _printers.append(logger)
 	
 	return logger
 
@@ -120,8 +146,8 @@ def get_global_setting(key):
 
 def set_global_setting(key, value):
 	
-	if key == 'level':
-		for prt in _printers:
-			prt.setLevel(log_levels[value] if value in log_levels else value)
+	# if key == 'level':
+	# 	for prt in _printers:
+	# 		prt.setLevel(log_levels[value] if value in log_levels else value)
 	
 	global_settings[key] = value

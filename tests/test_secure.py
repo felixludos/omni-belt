@@ -1,6 +1,6 @@
 
 from _util_test import get_adict
-import humpack.secure as scr
+import omnibelt.secure as scr
 
 
 def test_format_key_ans():
