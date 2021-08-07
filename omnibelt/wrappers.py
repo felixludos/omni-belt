@@ -3,7 +3,7 @@ from typing import Any
 from wrapt import ObjectProxy
 
 
-from .packing import Packable
+from .packing import Packable, register_packable
 from .transactions import Transactionable
 from .basic_containers import adict, tset, tlist
 
@@ -69,8 +69,8 @@ class ObjectWrapper(Transactionable, Packable, ObjectProxy):
 			self._self_children.remove(value)
 		return super().__delattr__(item)
 	
-	def __unpack__(self, data, unpack_member):
-		obj = self.__build__(data, unpack_member)
+	def __unpack__(self, data, o, unpack_member):
+		obj = self.__build__(data, o, unpack_member)
 		
 		self.__init__(obj)
 	
@@ -84,7 +84,7 @@ class ObjectWrapper(Transactionable, Packable, ObjectProxy):
 		'''
 		raise NotImplementedError
 	
-	def __build__(self, data, unpack_member):
+	def __build__(self, data, o, unpack_member):
 		'''
 		Recover the wrapped object in the correct state from data and return wrapped object
 
@@ -97,112 +97,124 @@ class ObjectWrapper(Transactionable, Packable, ObjectProxy):
 try:
 	import numpy as np
 	
+	#
+	# class Packable_Array(Packable, use_cls=np.ndarray):
+	# 	'''
+	# 	Wrapper to allow saving numpy arrays.
+	# 	Aside from being rather useful, this serves as an example for how to write a Packable wrapper.
+	#
+	# 	Note the necessary Packable methods are all static, and the use of "use_cls" in the class declaration.
+	# 	'''
+	#
+	# 	@staticmethod
+	# 	def __create__(data):
+	# 		'''
+	# 		Creates an empty np.array
+	#
+	# 		:param data: packed data
+	# 		:return: empty array with the correct size
+	# 		'''
+	# 		shape, dtype = data['shape'], data['dtype']
+	# 		return np.empty(shape, dtype)
+	#
+	# 	@staticmethod
+	# 	def __pack__(obj, pack_member):
+	# 		'''
+	# 		Pack the np.array data.
+	#
+	# 		Note: that the information necessary for creating thet instance (shape, dtype) is not packed,
+	# 		but still valid json objects
+	#
+	# 		:param obj: instance of numpy.ndarray to be packed
+	# 		:return: packed data
+	# 		'''
+	#
+	# 		data = {}
+	#
+	# 		data['shape'] = list(obj.shape)
+	# 		data['dtype'] = obj.dtype.name
+	#
+	# 		data['data'] = pack_member(obj.tolist())
+	#
+	# 		return data
+	#
+	# 	@staticmethod
+	# 	def __unpack__(obj, data, unpack_member):
+	# 		'''
+	# 		Unpack the data and save the data to the created object
+	#
+	# 		:param obj: instance with empty data to populate with the unpacked data
+	# 		:param data: packed data
+	# 		:return: None
+	# 		'''
+	#
+	# 		obj[:] = np.array(unpack_member(data['data']), dtype=data['dtype'])
+	#
+	#
+	# class Array(ObjectWrapper):
+	# 	'''
+	# 	This is an example of how to use the `ObjectWrapper`.
+	# 	Wraps numpy arrays.
+	#
+	# 	WARNING: it is NOT recommended to use this wrapper for numpy arrays (they are already registered).
+	# 	'''
+	#
+	# 	def begin(self):
+	# 		super().begin()
+	# 		if self.dtype.name == 'object':
+	# 			for el in self.flat:
+	# 				if isinstance(el, Transactionable):
+	# 					el.begin()
+	#
+	# 	def commit(self):
+	# 		super().commit()
+	# 		if self.dtype.name == 'object':
+	# 			for el in self.flat:
+	# 				if isinstance(el, Transactionable):
+	# 					el.commit()
+	#
+	# 	def abort(self):
+	# 		super().abort()
+	# 		if self.dtype.name == 'object':
+	# 			for el in self.flat:
+	# 				if isinstance(el, Transactionable):
+	# 					el.abort()
+	#
+	# 	def __pack__(self, pack_member):
+	# 		'''
+	# 		Pack data to restore numpy array.
+	#
+	# 		:return: packed data
+	# 		'''
+	# 		data = {
+	# 			'dtype': pack_member(self.dtype.name),
+	# 			'data': pack_member(self.tolist()),
+	# 			'shape': pack_member(self.shape),
+	# 		}
+	#
+	# 		return data
+	#
+	# 	def __build__(self, data, o, unpack_member):
+	# 		'''
+	# 		Restore state of numpy array by unpacking data
+	#
+	# 		:param data: packed data
+	# 		:return: restored state
+	# 		'''
+	# 		return np.array(unpack_member(data['data']), dtype=unpack_member(data['dtype']))
+	#
 	
-	class Packable_Array(Packable, use_cls=np.ndarray):
-		'''
-		Wrapper to allow saving numpy arrays.
-		Aside from being rather useful, this serves as an example for how to write a Packable wrapper.
-
-		Note the necessary Packable methods are all static, and the use of "use_cls" in the class declaration.
-		'''
-		
-		@staticmethod
-		def __create__(data):
-			'''
-			Creates an empty np.array
-
-			:param data: packed data
-			:return: empty array with the correct size
-			'''
-			shape, dtype = data['shape'], data['dtype']
-			return np.empty(shape, dtype)
-		
-		@staticmethod
-		def __pack__(obj, pack_member):
-			'''
-			Pack the np.array data.
-
-			Note: that the information necessary for creating thet instance (shape, dtype) is not packed,
-			but still valid json objects
-
-			:param obj: instance of numpy.ndarray to be packed
-			:return: packed data
-			'''
-			
-			data = {}
-			
-			data['shape'] = list(obj.shape)
-			data['dtype'] = obj.dtype.name
-			
-			data['data'] = pack_member(obj.tolist())
-			
-			return data
-		
-		@staticmethod
-		def __unpack__(obj, data, unpack_member):
-			'''
-			Unpack the data and save the data to the created object
-
-			:param obj: instance with empty data to populate with the unpacked data
-			:param data: packed data
-			:return: None
-			'''
-			
-			obj[:] = np.array(unpack_member(data['data']), dtype=data['dtype'])
+	def _unpack_array(arr, data, _, unpack_member):
+		arr[:] = np.array(unpack_member(data['data']), dtype=unpack_member(data['dtype']))
 	
-	
-	class Array(ObjectWrapper):
-		'''
-		This is an example of how to use the `ObjectWrapper`.
-		Wraps numpy arrays.
-
-		WARNING: it is NOT recommended to use this wrapper for numpy arrays (they are already registered).
-		'''
-		
-		def begin(self):
-			super().begin()
-			if self.dtype.name == 'object':
-				for el in self.flat:
-					if isinstance(el, Transactionable):
-						el.begin()
-		
-		def commit(self):
-			super().commit()
-			if self.dtype.name == 'object':
-				for el in self.flat:
-					if isinstance(el, Transactionable):
-						el.commit()
-		
-		def abort(self):
-			super().abort()
-			if self.dtype.name == 'object':
-				for el in self.flat:
-					if isinstance(el, Transactionable):
-						el.abort()
-		
-		def __pack__(self, pack_member):
-			'''
-			Pack data to restore numpy array.
-
-			:return: packed data
-			'''
-			data = {
-				'dtype': pack_member(self.dtype.name),
-				'data': pack_member(self.tolist()),
-				'shape': pack_member(self.shape),
-			}
-			
-			return data
-		
-		def __build__(self, data, unpack_member):
-			'''
-			Restore state of numpy array by unpacking data
-
-			:param data: packed data
-			:return: restored state
-			'''
-			return np.array(unpack_member(data['data']), dtype=unpack_member(data['dtype']))
-
+	register_packable(np.ndarray,
+	                  pack_fn=lambda arr, pack_member: {'shape':pack_member(arr.shape),
+	                                                    'dtype':pack_member(str(arr.dtype)),
+	                                                    'data': pack_member(arr.tolist())},
+	                  create_fn=lambda _, data, __, unpack_member: np.empty(unpack_member(data['shape']),
+	                                                                        unpack_member(data['dtype'])),
+	                  unpack_fn=_unpack_array,
+	                  )
 
 
 except ImportError:

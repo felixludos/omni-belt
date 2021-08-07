@@ -144,7 +144,7 @@ class tdict(Container, OrderedDict):
 		
 		return data
 	
-	def __unpack__(self, data, unpack_member):
+	def __unpack__(self, data, o, unpack_member):
 		
 		# TODO: write warning about overwriting state - which can't be aborted
 		# if self.in_transaction():
@@ -276,7 +276,7 @@ class tlist(Container, list):
 			state['_shadow'] = [pack_member(elm) for elm in self._shadow]
 		return state
 	
-	def __unpack__(self, state, unpack_member):
+	def __unpack__(self, state, o, unpack_member):
 		
 		# TODO: write warning about overwriting state - which can't be aborted
 		# if self.in_transaction():
@@ -445,7 +445,7 @@ class tset(Container, set):
 			state['_shadow'] = [pack_member(elm) for elm in self._shadow]
 		return state
 	
-	def __unpack__(self, data, unpack_member):
+	def __unpack__(self, data, o, unpack_member):
 		
 		# TODO: write warning about overwriting state - which can't be aborted
 		# if self.in_transaction():
@@ -673,7 +673,7 @@ class tdeque(Container, deque):
 			state['_shadow'] = [pack_member(elm) for elm in self._shadow]
 		return state
 	
-	def __unpack__(self, state, unpack_member):
+	def __unpack__(self, state, o, unpack_member):
 		
 		# TODO: write warning about overwriting state - which can't be aborted
 		# if self.in_transaction():
@@ -881,7 +881,7 @@ class theap(Container, object):
 			state['_shadow'] = [pack_member(elm) for elm in self._shadow]
 		return state
 	
-	def __unpack__(self, state, unpack_member):
+	def __unpack__(self, state, o, unpack_member):
 		
 		# TODO: write warning about overwriting state - which can't be aborted
 		# if self.in_transaction():

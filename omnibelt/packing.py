@@ -165,20 +165,23 @@ register_packable(type, name='class', ancestors=[],
 )
 register_packable(tuple, ancestors=[list],
              pack_fn=_pack_list,
-             create_fn=lambda _, xs, __, ___: tuple(unpack_member(x) for x in xs),
+             create_fn=lambda _, xs, __, unpack_member: tuple(unpack_member(x) for x in xs),
 )
 register_packable(complex, ancestors=[dict],
-             pack_fn=lambda c, _: [pack_member(c.real), pack_member(c.imag)],
-             create_fn=lambda _, data, __, ___: complex(unpack_member(data[0]), unpack_member(data[1])),
+             pack_fn=lambda c, pack_member: [pack_member(c.real), pack_member(c.imag)],
+             create_fn=lambda _, data, __, unpack_member: complex(unpack_member(data[0]), unpack_member(data[1])),
 )
 register_packable(range, ancestors=[dict],
-             pack_fn=lambda r, _: {'start':pack_member(r.start), 'stop':pack_member(r.stop), 'step':pack_member(r.step)},
-             create_fn=lambda _, data, __, ___: range(start=unpack_member(data['start']), stop=unpack_member(data['stop']),
-                                          step=unpack_member(data['step'])),
+             pack_fn=lambda r, pack_member: {'start':pack_member(r.start),
+                                             'stop':pack_member(r.stop),
+                                             'step':pack_member(r.step)},
+             create_fn=lambda _, data, __, unpack_member: range(unpack_member(data['start']),
+                                                                unpack_member(data['stop']),
+                                                                unpack_member(data['step'])),
 )
 register_packable(bytes, ancestors=[str],
-             pack_fn=lambda b, _: b.decode(),
-             create_fn=lambda _, s, __, ___: s.encode('latin1'),
+             pack_fn=lambda b, _: b.decode('8859'),
+             create_fn=lambda _, s, __, ___: s.encode('8859'),
 )
 
 # endregion
