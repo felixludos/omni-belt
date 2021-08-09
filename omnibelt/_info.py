@@ -3,7 +3,7 @@
 name = 'omnibelt'
 long_name = 'omni-belt'
 
-version = '0.5'
+version = '0.5.1'
 url = 'https://github.com/felixludos/omni-belt'
 
 description = 'Universal python utilities'
@@ -22,7 +22,7 @@ try:
 	with open(os.path.join(os.path.abspath(os.path.dirname(os.path.dirname(__file__))), 'requirements.txt'), 'r') as f:
 		install_requires = f.readlines()
 except:
-	install_requires = ['pyyaml', 'c3linearize']
+	install_requires = ['pyyaml', 'c3linearize', 'wrapt', 'cryptography']
 del os
 
 
