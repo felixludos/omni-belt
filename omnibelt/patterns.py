@@ -1,9 +1,17 @@
 
 class InitWall:
-    def __init__(self, *args, _req_args=(), _req_kwargs={}, **kwargs):
-        # print(_req_args, _req_kwargs)
-        # print(self.__class__.__mro__)
-        super().__init__(*_req_args, **_req_kwargs)
+    def __init__(self, *args, _multi_inits=None, _req_args=(), _req_kwargs={}, **kwargs):
+        if _multi_inits is None:
+            super().__init__(*_req_args, **_req_kwargs)
+        else:
+            for base in _multi_inits:
+                if base is None:
+                    super().__init__(*_req_args.get(base, ()),
+                                     **_req_kwargs.get(base, {}))
+
+                elif isinstance(self, base):
+                    super(base, self).__init__(*_req_args.get(base,()),
+                                               **_req_kwargs.get(base, {}))
 
 
 class Singleton(object):
