@@ -38,12 +38,22 @@ def duplicate_func(f, cls=None, name=None):
 	)
 
 	new.__qualname__ = f"{cls.__name__}.{new.__name__}"
+	new.__dict__.update(f.__dict__)
 
 	return new
 
 
 
-def duplicate_class(cls, name=None, chain=False):
+def join_classes(*bases, name=None, data=None):
+	if data is None:
+		data = {}
+	if name is None:
+		name = '_'.join(cls.__name__ for cls in bases)
+	return type(name, bases, data)
+
+
+
+def duplicate_class(cls, name=None, chain=False, data=None):
 	if name is None:
 		name = cls.__name__
 
@@ -54,12 +64,22 @@ def duplicate_class(cls, name=None, chain=False):
 		parents = cls.__bases__
 		data = dict(cls.__dict__)
 
-	new = type(name, parents, data)
+	new = join_classes(*parents, name=name, data=data)
 	for attr in new.__dict__:
 		if isinstance(getattr(new, attr), types.FunctionType):
 			setattr(new, attr, duplicate_func(getattr(new, attr), cls=new))
 
 	return new
+
+
+
+class _Blank: pass
+def duplicate_instance(obj):
+	new = _Blank()
+	new.__dict__.update(obj.__dict__)
+	new.__class__ = obj.__class__
+	return new
+
 
 
 
@@ -103,6 +123,53 @@ def duplicate_class(cls, name=None, chain=False):
 
 
 
+class conditional_method:
+	def __init__(self, fn=None):
+		self.fn = fn
+
+
+	def condition(self, instance):
+		raise NotImplementedError
+
+
+	def _build_method(self, fn, instance, owner):
+		return types.MethodType(duplicate_func(fn, cls=owner), instance)
+
+
+	def __get__(self, instance, owner):
+		# print(f"returned from descriptor object {instance} {owner}")
+
+		if instance is None:
+			return self
+
+		if not self.condition(instance):
+			raise AttributeError(f'Condition of wrapped method failed: {self.fn.__name__}')
+		meth = self._build_method(self.fn, instance, owner)
+		return meth
+
+
+	def __set__(self, instance, value):
+		print(f"set in descriptor object {instance} {value}")
+		self.fn = value
+
+
+	def __call__(self, fn):
+		self.fn = fn
+		return self
+
+
+
+class lambda_conditional_method(conditional_method):
+	def __init__(self, condition):
+		self._condition = condition
+
+
+	def condition(self, instance):
+		return self._condition(instance)
+
+
+
+
 _class_subs = {}
 def _gen_sub_template_name(cls):
 	if cls not in _class_subs:
@@ -112,19 +179,26 @@ def _gen_sub_template_name(cls):
 
 
 
-def wrap_class(wrapper, cls, name=None, chain=False):
+def wrap_class(wrapper, cls, name=None, chain=False, data=None):
 	if name is None:
-		name = wrapper._gen_sub_template_name()
-	sub = duplicate_class(wrapper, name, chain=chain)
-	return type(f'{sub.__name__}_{obj.__class__.__name__}', (sub, obj.__class__), {})
+		name = _gen_sub_template_name(wrapper)
+
+	sub = duplicate_class(wrapper, name, chain=chain, data=data)
+	return join_classes(sub, cls)
 
 
 
-def wrap_instance(wrapper, obj, chain=False):
-	obj.__class__ = wrap_class(wrapper, obj.__class__, chain=chain)
+def replace_class(obj, cls, check_conditions=True):
+	obj.__class__ = cls
 	return obj
 
 
+
+def wrap_instance(wrapper, obj, new_instance=False, chain=False, cls_data=None):
+	cls = wrap_class(wrapper, obj.__class__, chain=chain, data=cls_data)
+	if new_instance:
+		obj = duplicate_instance(obj)
+	return replace_class(obj, cls)
 
 
 

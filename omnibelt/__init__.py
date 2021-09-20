@@ -3,11 +3,13 @@ from .flow import safe_self_execute, multi_index
 from .logging import get_printer, get_global_setting, get_global_settings, set_global_setting, set_printer_setting
 from .filesystem import create_dir, crawl, spawn_path_options, load_yaml, save_yaml, \
 	load_csv, load_tsv, load_json, save_json, monkey_patch, load_txt, save_txt
-from .typing import primitives, unspecified_argument, duplicate_class, duplicate_func, wrap_class, wrap_instance
+from .typing import primitives, unspecified_argument, join_classes, replace_class, \
+	duplicate_class, duplicate_func, duplicate_instance, wrap_class, wrap_instance, \
+	conditional_method, lambda_conditional_method
 from .timing import get_now, recover_date
 from .patterns import Singleton, InitSingleton, InitWall
 from .containers import deep_get, Simple_Child, Proper_Child, AttrDict, AttrOrdDict, Value, LoadedValue
-from .registries import Registry, Entry_Registry, Named_Registry
+from .registries import Registry, Entry_Registry, Named_Registry, Class_Registry
 from .logic import sort_by, resolve_order, toposort
 from .hashing import Hashable
 
