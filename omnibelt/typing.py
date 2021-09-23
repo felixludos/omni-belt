@@ -52,6 +52,14 @@ def join_classes(*bases, name=None, data=None):
 	return type(name, bases, data)
 
 
+class ClassAttr:
+	def duplicate(self):
+		clone = _Blank()
+		clone.__class__ = self.__class__
+		clone.__dict__.update(self.__dict__)
+		return clone
+
+
 
 def duplicate_class(cls, name=None, chain=False, data=None):
 	if name is None:
@@ -65,9 +73,11 @@ def duplicate_class(cls, name=None, chain=False, data=None):
 		data = dict(cls.__dict__)
 
 	new = join_classes(*parents, name=name, data=data)
-	for attr in new.__dict__:
-		if isinstance(getattr(new, attr), types.FunctionType):
-			setattr(new, attr, duplicate_func(getattr(new, attr), cls=new))
+	for key, attr in new.__dict__.items():
+		if isinstance(attr, ClassAttr):
+			setattr(new, key, attr.duplicate())
+		elif isinstance(attr, types.FunctionType):
+			setattr(new, key, duplicate_func(attr, cls=new))
 
 	return new
 
@@ -82,59 +92,21 @@ def duplicate_instance(obj):
 
 
 
-
-# class Template:
-# 	def __activate__(self, *args, **kwargs):
-# 		pass
-# class Template:
-# 	def __init_subclass__(cls, **kwargs):
-# 		super().__init_subclass__(**kwargs)
-# 		cls.__sub_count = 0
-#
-#
-# 	@classmethod
-# 	def _gen_sub_template_name(cls):
-# 		cls.__sub_count += 1
-# 		return f'{cls.__name__}{cls.__sub_count}'
-#
-#
-# 	@classmethod
-# 	def _gen_sub_template(cls):
-# 		return duplicate_class(cls, cls._gen_sub_template_name())
-#
-#
-# 	def __activate__(self, *args, **kwargs):
-# 		pass
-#
-#
-#
-# class Wrapper(Template):
-# 	@classmethod
-# 	def wrap_instance(cls, obj, *args, **kwargs):
-# 		new = cls.wrap_class(obj.__class__)
-# 		obj.__class__ = new
-# 		obj.__activate__(*args, **kwargs)
-# 		return obj
-#
-#
-# 	@classmethod
-# 	def wrap_class(cls, other):
-# 		return cls._gen_sub_template()
-
-
-
-class conditional_method:
+class conditional_method(ClassAttr):
 	def __init__(self, fn=None):
 		self.fn = fn
-
 
 	def condition(self, instance):
 		raise NotImplementedError
 
+	def set_owner(self, owner):
+		self.owner = owner
+
+	def set_base(self, base):
+		self.base = base
 
 	def _build_method(self, fn, instance, owner):
 		return types.MethodType(duplicate_func(fn, cls=owner), instance)
-
 
 	def __get__(self, instance, owner):
 		# print(f"returned from descriptor object {instance} {owner}")
@@ -144,7 +116,7 @@ class conditional_method:
 
 		if not self.condition(instance):
 			raise AttributeError(f'Condition of wrapped method failed: {self.fn.__name__}')
-		meth = self._build_method(self.fn, instance, owner)
+		meth = self._build_method(self.fn, instance, getattr(self, 'base', owner))
 		return meth
 
 
@@ -169,7 +141,6 @@ class lambda_conditional_method(conditional_method):
 
 
 
-
 _class_subs = {}
 def _gen_sub_template_name(cls):
 	if cls not in _class_subs:
@@ -184,6 +155,10 @@ def wrap_class(wrapper, cls, name=None, chain=False, data=None):
 		name = _gen_sub_template_name(wrapper)
 
 	sub = duplicate_class(wrapper, name, chain=chain, data=data)
+	for attr in sub.__dict__.values():
+		if isinstance(attr, conditional_method):
+			attr.set_owner(sub)
+			attr.set_base(cls)
 	return join_classes(sub, cls)
 
 
