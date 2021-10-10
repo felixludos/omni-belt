@@ -89,6 +89,7 @@ def save_txt(data, path):
 
 
 def create_dir(directory):
+	directory = str(directory)
 	if not os.path.exists(directory):
 		os.makedirs(directory)
 
