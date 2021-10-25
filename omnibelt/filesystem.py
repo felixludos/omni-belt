@@ -1,7 +1,9 @@
 import sys, os
 import json
 import yaml
+import pickle
 
+from . import unspecified_argument
 from collections import OrderedDict
 
 def monkey_patch(cls, module=None, include_mp=True):
@@ -87,6 +89,15 @@ def save_txt(data, path):
 		return f.write(data)
 
 
+def save_pickle(data, path):
+	with open(str(path), 'w') as f:
+		pickle.dump(data, f)
+
+
+def load_pickle(path):
+	with open(str(path), 'r') as f:
+		return pickle.load(f)
+
 
 def create_dir(directory):
 	directory = str(directory)
@@ -133,6 +144,7 @@ def load_tsv(path, **kwargs):
 	kwargs['sep'] = '\t'
 	return load_csv(path, **kwargs)
 
+
 def spawn_path_options(path):
 	options = set()
 	
@@ -146,4 +158,125 @@ def spawn_path_options(path):
 	# TODO: include FIG_PATH_ROOT
 	
 	return options
+
+
+
+class Persistent:
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self._datafiles = {}
+
+
+	def _get_datafile_path(self, path=None, name=None, ext=None):
+		if path is None:
+			raise NotImplementedError
+		if name is None:
+			return path
+		if ext is not None:
+			name = f'{name}.{ext}'
+		path.mkdir(exist_ok=True)
+		return path / name
+
+
+	def _save_datafile(self, data, path=None, name=None, ext='pk', overwrite=False):
+		path = self._get_datafile_path(path=path, name=name, ext=ext)
+		if not path.exists() or overwrite:
+			save_pickle(data, path)
+			return path
+
+
+	def _load_datafile(self, path=None, name=None, ext='pk', **kwargs):
+		path = self._get_datafile_path(path=path, name=name, ext=ext)
+		return load_pickle(path)
+
+
+	def has_datafile(self, ident, path=None, ext=None, persistent=False):
+		fixed = ident.split('.')[0] if ext is not None else ident
+		if fixed in self._datafiles and not persistent:
+			return True
+
+		return self._get_datafile_path(path=path, name=fixed, ext=ext).exists()
+
+
+	def update_datafile(self, ident, data, path=None, overwrite=False, ext=None, **kwargs):
+		fixed = ident.split('.')[0] if ext is not None else ident
+
+		self._datafiles[fixed] = data
+		return self._save_datafile(data, name=fixed, path=path, overwrite=overwrite, **kwargs)
+
+
+	def get_datafile(self, ident, path=None, ext=None, force_load=False, skip_cache=False,
+	                 default=unspecified_argument, **kwargs):
+		if not force_load:
+			if ident in self._datafiles:
+				return self._datafiles[ident]
+
+			fixed = ident.split('.')[0] if ext is not None else ident
+			if fixed in self._datafiles:
+				return self._datafiles[fixed]
+
+		try:
+			self._datafiles[fixed] = self._load_datafile(name=fixed, path=path, **kwargs)
+		except FileNotFoundError:
+			if default is unspecified_argument:
+				raise
+			self.update_datafile(fixed, default, path)
+		out = self._datafiles[fixed]
+		if skip_cache:
+			del self._datafiles[fixed]
+		return out
+
+
+	def store_datafiles(self, datafiles=None, path=None, overwrite=False, ext=None, **kwargs):
+		if datafiles is None:
+			datafiles = self._datafiles
+		return {name: self.update_datafile(name, value, path=path, overwrite=overwrite, ext=ext, **kwargs)
+		        for name, value in datafiles.items()}
+
+
+
+class HierarchyPersistent(Persistent):
+
+	def _save_datafile(self, data, path=None, name=None, ext='pk', overwrite=False,
+	                  separate_dict=True, recursive=False):
+		top = None if separate_dict and isinstance(data, dict) else ext
+		path = self._get_results_path(path=path, name=name, ext=top)
+
+		if top is None:
+			path.mkdir(exist_ok=True)
+			for key, value in data.items():
+				self._save_datafile(value, path=path, name=key, overwrite=overwrite, ext=ext,
+				                   separate_dict=separate_dict and recursive, recursive=recursive)
+			return path
+		return super()._save_datafile(data, path=path, name=name, ext=ext, overwrite=overwrite)
+
+
+	def _load_datafile(self, path=None, name=None, ext=None, delimiter='/', **kwargs):
+		assert path is not None or name is not None, 'no info'
+
+		if isinstance(name, str):
+			name = name.split(delimiter)
+		if name is not None:
+			name = Path(*name)
+
+		path = self._get_results_path(path=path, name=name, ext=ext)
+		if path.is_dir():
+			return {p.stem.split('.')[0]: self._load_results(path=p, delimiter=delimiter, **kwargs)
+			        for p in path.glob('*')}
+		elif not path.is_file():
+			fix = list(path.parents[0].glob(f'{path.name}*'))
+			if len(fix) == 0:
+				raise FileNotFoundError(str(path))
+			path = fix[0]
+
+		return super()._load_datafile(path=path, ext=ext, **kwargs)
+
+
+
+
+
+
+
+
+
 

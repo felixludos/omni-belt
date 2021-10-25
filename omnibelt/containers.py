@@ -2,6 +2,19 @@
 from collections import OrderedDict
 from wrapt import ObjectProxy
 
+
+class Named:
+	def __init__(self, *args, name=None, **kwargs):
+		super().__init__(*args, **kwargs)
+		self._name = name
+
+
+	def get_name(self):
+		return self._name
+
+
+
+
 class AttrDict(dict):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
