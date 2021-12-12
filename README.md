@@ -1,5 +1,6 @@
 # omni-belt
 
-[![Build Status](https://travis-ci.com/felixludos/omni-belt.svg?branch=master)](https://travis-ci.com/felixludos/omni-belt)
+[![Unit-Tests](https://github.com/felixludos/omnibelt/actions/workflows/tests.yaml/badge.svg)](https://github.com/felixludos/omnibelt/actions/workflows/tests.yaml)
+
 
 This is a simple tool belt containing pure python utilities for downstream projects.
