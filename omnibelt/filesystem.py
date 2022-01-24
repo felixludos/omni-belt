@@ -180,7 +180,8 @@ class Persistent:
 		elif ext is not unspecified_argument and ext is not None:
 			name = f'{name}.{ext}'
 		if not quiet:
-			root.mkdir(exist_ok=True)
+			create_dir(root)
+			# root.mkdir(exist_ok=True)
 		return root / name
 
 
