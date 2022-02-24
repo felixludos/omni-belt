@@ -85,6 +85,13 @@ def duplicate_class(cls, name=None, chain=False, data=None):
 
 class _Blank: pass
 def duplicate_instance(obj):
+	# slots = getattr(obj.__class__, '__slots__', None)
+	# if slots is None:
+	# 	class _Blank():
+	# 		pass
+	# else:
+	# 	class _Blank():
+	# 		__slots__ = slots
 	new = _Blank()
 	new.__dict__.update(obj.__dict__)
 	new.__class__ = obj.__class__
