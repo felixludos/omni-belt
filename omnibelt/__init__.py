@@ -3,7 +3,7 @@ from .flow import safe_self_execute, multi_index
 from .logging import get_printer, get_global_setting, get_global_settings, set_global_setting, set_printer_setting
 from .typing import primitives, unspecified_argument, join_classes, replace_class, \
 	duplicate_class, duplicate_func, duplicate_instance, wrap_class, wrap_instance, \
-	conditional_method, lambda_conditional_method
+	conditional_method, lambda_conditional_method, agnosticmethod
 from .filesystem import create_dir, crawl, spawn_path_options, load_yaml, save_yaml, \
 	load_csv, load_tsv, load_json, save_json, monkey_patch, load_txt, save_txt, Persistent, HierarchyPersistent, \
 	load_pickle, save_pickle
@@ -13,6 +13,8 @@ from .containers import deep_get, Simple_Child, Proper_Child, AttrDict, AttrOrdD
 from .registries import Registry, Entry_Registry, Named_Registry, Class_Registry
 from .logic import sort_by, resolve_order, toposort
 from .hashing import Hashable
+from .utils import md5
+from .exporting import export, load_export, Exportable
 
 from .packing import Packable, primitive, PRIMITIVE, SERIALIZABLE, JSONABLE, pack, unpack
 from .packing import save_pack, load_pack, json_pack, json_unpack

@@ -12,6 +12,16 @@ class unspecified_argument:
 
 
 
+class agnosticmethod:
+	def __init__(self, fn):
+		self.fn = fn
+
+	
+	def __get__(self, obj, cls):
+		return types.MethodType(self.fn, cls if obj is None else obj)
+
+
+
 def duplicate_func(f, cls=None, name=None):
 	'''
 	Adapted from Aaron Hall's post here:

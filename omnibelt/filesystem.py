@@ -4,7 +4,7 @@ import json
 import yaml
 import pickle
 
-from . import unspecified_argument
+from . import unspecified_argument, agnosticmethod
 from collections import OrderedDict
 
 def monkey_patch(cls, module=None, include_mp=True):
@@ -67,15 +67,15 @@ def save_yaml(data, path, ordered=False, default_flow_style=None, **kwargs):
 		return yaml.safe_dump(data, f, default_flow_style=default_flow_style, **kwargs)
 
 
-def load_json(path):
+def load_json(path, **kwargs):
 	path = str(path)
 	with open(path, 'r') as f:
-		return json.load(f)
+		return json.load(f, **kwargs)
 
-def save_json(data, path):
+def save_json(data, path, **kwargs):
 	path = str(path)
 	with open(path, 'w') as f:
-		return json.dump(data, f)
+		return json.dump(data, f, **kwargs)
 
 
 

@@ -6,6 +6,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
+import hashlib
+
 from collections import OrderedDict
 
 from .packing import json_pack, json_unpack, SERIALIZABLE, PACKED, JSONABLE
@@ -290,5 +292,6 @@ class Permission_Handler:  # TODO: make transactionable, actually just move to h
 				return user
 		
 		raise InsufficientPermissionsError(user, action)
+
 
 
