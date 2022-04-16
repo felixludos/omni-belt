@@ -35,6 +35,42 @@ class Scope(metaclass=MROMeta):
 
 
 
+class auto_args:
+	def __init__(self, fn=None):
+		self.fn = fn
+		# self._out_key = None
+		# self.args = args
+
+
+	def __call__(self, fn):
+		self.fn = fn
+		return self
+
+
+	def __get__(self, obj, cls=None):
+		self.obj, self.cls = obj, cls
+		return self.apply_fn
+
+
+	def process_args(self, *args, **kwargs):
+		args = (self.obj, *args)
+		return args, kwargs
+
+
+	def process_out(self, out):
+		return out
+
+
+	def apply_fn(self, *args, _process_args=True, _process_out=True, **kwargs): # TODO: maybe remove "_process" kwargs?
+		if _process_args:
+			args, kwargs = self.process_args(*args, **kwargs)
+		out = self.fn(*args, **kwargs)
+		if _process_out:
+			out = self.process_out(out)
+		return out
+
+
+
 class self_aware:
 	def __init__(self, cls):
 		self.cls = cls
