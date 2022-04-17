@@ -15,7 +15,7 @@ from .logic import sort_by, resolve_order, toposort
 from .hashing import Hashable
 from .utils import md5
 from .exporting import export, load_export, Exportable
-from .tricks import self_aware, clsdec, innerchild, auto_args
+from .tricks import self_aware, clsdec, innerchild, auto_args, ClassDescriptable, classdescriptor
 
 from .packing import Packable, primitive, PRIMITIVE, SERIALIZABLE, JSONABLE, pack, unpack
 from .packing import save_pack, load_pack, json_pack, json_unpack

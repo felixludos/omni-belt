@@ -1,3 +1,20 @@
+import inspect
+
+
+class ClassDescriptable(type):
+	def __setattr__(self, key, val):
+		existing = inspect.getattr_static(self, key, None)
+		if isinstance(existing, classdescriptor):
+			existing.__set__(self, val)
+		else:
+			super().__setattr__(key, val)
+
+
+
+class classdescriptor:
+	def __set__(self, obj, value):
+		raise NotImplementedError
+	
 
 
 class MRONamespace(dict):
