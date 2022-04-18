@@ -82,6 +82,9 @@ def get_printer(name, level=None, format=None, formatter=None,
 	# assert not no_file or include_stream, 'Not logging anywhere'
 	
 	logger = logging.getLogger(name)
+
+	logger_handler = logging.StreamHandler()  # Handler for the logger
+	logger.addHandler(logger_handler)
 	
 	# if level is None:
 	# 	level = global_settings['level']
@@ -91,6 +94,8 @@ def get_printer(name, level=None, format=None, formatter=None,
 	
 	if format is not None:
 		formatter = logging.Formatter(format)
+
+		logger_handler.setFormatter(formatter)
 	
 	# if format is None:  # default formatter
 	# 	format = global_settings['format']
