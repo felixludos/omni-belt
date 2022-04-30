@@ -1,5 +1,4 @@
-import json
-import hashlib
+
 # from omnibelt import safe_self_execute
 
 def safe_self_execute(obj, fn, default='<<short circuit>>',
@@ -18,11 +17,6 @@ def safe_self_execute(obj, fn, default='<<short circuit>>',
 
 
 
-
-def md5(s):
-	if not isinstance(s, str):
-		s = json.dumps(s, sort_keys=True)
-	return hashlib.md5(s.encode('utf-8')).hexdigest()
 
 
 

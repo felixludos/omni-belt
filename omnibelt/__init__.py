@@ -12,8 +12,8 @@ from .patterns import Singleton, InitSingleton, InitWall
 from .containers import deep_get, Simple_Child, Proper_Child, AttrDict, AttrOrdDict, Value, LoadedValue, Named
 from .registries import Registry, Entry_Registry, Named_Registry, Class_Registry
 from .logic import sort_by, resolve_order, toposort
-from .hashing import Hashable
-from .utils import md5
+from .hashing import Hashable, md5
+# from .utils import
 from .exporting import export, load_export, Exportable
 from .tricks import self_aware, clsdec, innerchild, auto_args, ClassDescriptable, classdescriptor
 
