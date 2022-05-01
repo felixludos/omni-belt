@@ -1,7 +1,7 @@
 import types
 
 
-primitives = (str, int, float, bool)
+primitives = (str, int, float, bool, type(None))
 
 
 
