@@ -4,7 +4,7 @@ from collections import OrderedDict
 
 
 
-class Exportable:
+class Exporter:
 	class UnknownExportData(Exception):
 		def __init__(self, obj):
 			super().__init__(f'{obj}')
@@ -38,7 +38,7 @@ class Exportable:
 		ID = id(cls._export_fmts_head)
 		for parent in cls.mro():
 			tbl = getattr(parent, '_export_table', None)
-			if isinstance(parent, Exportable) and tbl is not None and ID != id(tbl):
+			if isinstance(parent, Exporter) and tbl is not None and ID != id(tbl):
 				return parent
 	
 	
@@ -129,7 +129,7 @@ class Exportable:
 	
 	@classmethod
 	def resolve_fmt(cls, fmt):
-		if isinstance(fmt, Exportable):
+		if isinstance(fmt, Exporter):
 			return fmt
 		if not isinstance(fmt, str):
 			raise cls.UnknownExportFormat(fmt)
@@ -206,13 +206,23 @@ class Exportable:
 
 
 
+# class Exportable:
+#
+# 	@staticmethod
+# 	def load_export(path, src=None):
+# 		pass
+#
+# 	pass
+
+
+
 def export(obj, name=None, root=None, fmt=None, path=None, **kwargs):
-	return Exportable.export(obj, name=name, root=root, fmt=fmt, path=path, **kwargs)
+	return Exporter.export(obj, name=name, root=root, fmt=fmt, path=path, **kwargs)
 
 
 
 def load_export(name=None, root=None, fmt=None, path=None, **kwargs):
-	return Exportable.load_export(name=name, root=root, fmt=fmt, path=path, **kwargs)
+	return Exporter.load_export(name=name, root=root, fmt=fmt, path=path, **kwargs)
 
 
 
