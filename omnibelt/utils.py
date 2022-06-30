@@ -1,6 +1,10 @@
 
 # from omnibelt import safe_self_execute
 
+def sign(x):
+	return 0 if x == 0 else (1 if x > 0 else -1)
+
+
 def safe_self_execute(obj, fn, default='<<short circuit>>',
                  flag='safe execute flag'):
 	
