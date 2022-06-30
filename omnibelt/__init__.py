@@ -14,7 +14,8 @@ from .registries import Registry, Entry_Registry, Named_Registry, Class_Registry
 from .logic import sort_by, resolve_order, toposort
 from .hashing import Hashable, md5
 from .utils import sign
-from .exporting import export, load_export, Exportable
+# from .exporting import export, load_export, Exportable
+from .exporting import export, load_export, Exporter
 from .tricks import self_aware, clsdec, innerchild, auto_args, ClassDescriptable, classdescriptor
 
 from .packing import Packable, primitive, PRIMITIVE, SERIALIZABLE, JSONABLE, pack, unpack
