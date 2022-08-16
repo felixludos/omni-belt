@@ -149,8 +149,55 @@ class innerchild:
 			raise self.MissingParent(owner, cls_name)
 		child = type(cls_name, (self.cls, parent), {})
 		setattr(owner, name, child)
-
-
+	
+	
+	
+def extract_function_signature(fn, args, kwargs, default_fn):
+	params = inspect.signature(fn).parameters
+	
+	arg_idx = 0
+	fixed_args = []
+	fixed_kwargs = {}
+	
+	for n, p in params.items():
+		if p.kind == p.POSITIONAL_ONLY:
+			if arg_idx < len(args):
+				fixed_args.append(args[arg_idx])
+				arg_idx += 1
+			else:
+				try:
+					val = default_fn(n)
+				except KeyError:
+					pass
+				else:
+					fixed_args.append(val)
+		elif p.kind == p.VAR_POSITIONAL:
+			try:
+				val = default_fn(n)
+			except KeyError:
+				fixed_args.extend(args[arg_idx:])
+				arg_idx = len(args)
+			else:
+				fixed_args.extend(val)
+		elif p.kind == p.KEYWORD_ONLY:
+			if n in kwargs:
+				fixed_kwargs[n] = kwargs[n]
+			else:
+				try:
+					val = default_fn(n)
+				except KeyError:
+					pass
+				else:
+					fixed_kwargs[n] = val
+		elif p.kind == p.VAR_KEYWORD:
+			try:
+				val = default_fn(n)
+			except KeyError:
+				fixed_kwargs.update(kwargs)
+			else:
+				fixed_kwargs.update(val)
+	
+	return fixed_args, fixed_kwargs
 
 
 
