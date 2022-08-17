@@ -221,6 +221,8 @@ class Class_Registry(Entry_Double_Registry):
 		super().__init_subclass__(primary_component='name', sister_component=sister_component,
 		                          components=components, required=required)
 
+	def get_class(self, x):
+		return getattr(self.find(x), self._sister_key_name)
 
 	class DecoratorBase(Entry_Double_Registry.DecoratorBase):
 		def _register(self, val, name=None, **params):

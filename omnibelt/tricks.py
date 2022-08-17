@@ -179,7 +179,14 @@ def extract_function_signature(fn, args, kwargs, default_fn):
 				arg_idx = len(args)
 			else:
 				fixed_args.extend(val)
-		elif p.kind == p.KEYWORD_ONLY:
+		elif p.kind == p.VAR_KEYWORD:
+			try:
+				val = default_fn(n)
+			except KeyError:
+				fixed_kwargs.update(kwargs)
+			else:
+				fixed_kwargs.update(val)
+		else:
 			if n in kwargs:
 				fixed_kwargs[n] = kwargs[n]
 			else:
@@ -189,14 +196,6 @@ def extract_function_signature(fn, args, kwargs, default_fn):
 					pass
 				else:
 					fixed_kwargs[n] = val
-		elif p.kind == p.VAR_KEYWORD:
-			try:
-				val = default_fn(n)
-			except KeyError:
-				fixed_kwargs.update(kwargs)
-			else:
-				fixed_kwargs.update(val)
-	
 	return fixed_args, fixed_kwargs
 
 
