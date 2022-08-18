@@ -64,11 +64,9 @@ class Scope(metaclass=MROMeta):
 
 
 
-class auto_args:
+class method_wrapper:
 	def __init__(self, fn=None):
 		self.fn = fn
-		# self._out_key = None
-		# self.args = args
 
 
 	def __call__(self, fn):
@@ -81,21 +79,20 @@ class auto_args:
 		return self.apply_fn
 
 
-	def process_args(self, *args, **kwargs):
+	def process_args(self, args, kwargs):
 		args = (self.obj, *args)
 		return args, kwargs
 
 
-	def process_out(self, out):
+	@staticmethod
+	def process_out(out):
 		return out
 
 
-	def apply_fn(self, *args, _process_args=True, _process_out=True, **kwargs): # TODO: maybe remove "_process" kwargs?
-		if _process_args:
-			args, kwargs = self.process_args(*args, **kwargs)
+	def apply_fn(self, *args, **kwargs):
+		args, kwargs = self.process_args(args, kwargs)
 		out = self.fn(*args, **kwargs)
-		if _process_out:
-			out = self.process_out(out)
+		out = self.process_out(out)
 		return out
 
 

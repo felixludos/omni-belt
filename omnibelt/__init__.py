@@ -17,7 +17,7 @@ from .utils import sign, split_dict
 from .ordered_set import OrderedSet
 # from .exporting import export, load_export, Exportable
 from .exporting import export, load_export, Exporter
-from .tricks import self_aware, clsdec, innerchild, auto_args, ClassDescriptable, classdescriptor, \
+from .tricks import self_aware, clsdec, innerchild, method_wrapper, ClassDescriptable, classdescriptor, \
 	extract_function_signature
 
 from .packing import Packable, primitive, PRIMITIVE, SERIALIZABLE, JSONABLE, pack, unpack
