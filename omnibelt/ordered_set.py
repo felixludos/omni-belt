@@ -206,6 +206,55 @@ class OrderedSet(MutableSet[T], Sequence[T]):
 
     append = add
 
+    def prepend(self, key: T) -> int:
+        """
+        Add `key` as an item to the beginning of this OrderedSet, then return its index.
+        If `key` is already in the OrderedSet, return the index it already
+        had.
+        Example:
+            >>> oset = OrderedSet()
+            >>> oset.prepend(3)
+            0
+            >>> print(oset)
+            OrderedSet([3])
+        """
+        return self.insert(0, key)
+
+    # def prepend(self, *keys: T) -> None:
+    #     """
+    #     Add `keys` as items to the beginning of this OrderedSet.
+    #     Example:
+    #         >>> oset = OrderedSet()
+    #         >>> oset.prepend([3, 2, 1])
+    #         >>> print(oset)
+    #         OrderedSet([3, 2, 1])
+    #     """
+    #     for i, key in enumerate(keys):
+    #         if key in self:
+    #             self.discard(key)
+    #         self.insert(i, key)
+
+
+    def insert(self, index: int, key: T) -> int:
+        """
+        Insert `key` at `index` in this OrderedSet, then return its index.
+        If `key` is already in the OrderedSet, return the index it already
+        had.
+        Example:
+            >>> oset = OrderedSet()
+            >>> oset.insert(0, 3)
+            0
+            >>> print(oset)
+            OrderedSet([3])
+        """
+        if key not in self.map:
+            self.map[key] = index
+            self.items.insert(index, key)
+            for i in range(index + 1, len(self.items)):
+                self.map[self.items[i]] = i
+        return self.map[key]
+
+
     def update(self, sequence: SetLike[T]) -> int:
         """
         Update the set with the given iterable sequence, then return the index
@@ -269,8 +318,7 @@ class OrderedSet(MutableSet[T], Sequence[T]):
             raise KeyError("Set is empty")
 
         elem = self.items[index]
-        del self.items[index]
-        del self.map[elem]
+        self.discard(elem)
         return elem
 
     def discard(self, key: T) -> None:
@@ -288,12 +336,11 @@ class OrderedSet(MutableSet[T], Sequence[T]):
             OrderedSet([1, 3])
         """
         if key in self:
-            i = self.map[key]
-            del self.items[i]
+            index = self.map[key]
+            del self.items[index]
             del self.map[key]
-            for k, v in self.map.items():
-                if v >= i:
-                    self.map[k] = v - 1
+            for i in range(index % len(self.items), len(self.items)):
+                self.map[self.items[i]] = i
 
     def clear(self) -> None:
         """

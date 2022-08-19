@@ -183,9 +183,24 @@ def extract_function_signature(fn, args, kwargs, default_fn):
 				fixed_kwargs.update(kwargs)
 			else:
 				fixed_kwargs.update(val)
+
+		elif p.kind == p.KEYWORD_ONLY:
+			if n in kwargs:
+				fixed_kwargs[n] = kwargs[n]
+			else:
+				try:
+					val = default_fn(n)
+				except KeyError:
+					pass
+				else:
+					fixed_kwargs[n] = val
+
 		else:
 			if n in kwargs:
 				fixed_kwargs[n] = kwargs[n]
+			elif arg_idx < len(args):
+				fixed_args.append(args[arg_idx])
+				arg_idx += 1
 			else:
 				try:
 					val = default_fn(n)

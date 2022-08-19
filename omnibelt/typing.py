@@ -1,4 +1,5 @@
 import types
+import inspect
 
 
 primitives = (str, int, float, bool, type(None))
@@ -18,6 +19,8 @@ class agnosticmethod:
 
 	
 	def __get__(self, obj, cls):
+		# if inspect.isgeneratorfunction(self.fn):
+		# 	return types.GeneratorType(self.fn, obj)
 		return types.MethodType(self.fn, cls if obj is None else obj)
 
 
