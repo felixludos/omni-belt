@@ -25,7 +25,7 @@ def safe_self_execute(obj, fn, default='<<short circuit>>',
 
 def split_dict(items, keys):
 	good, bad = OrderedDict(), OrderedDict()
-	for k in keys:
+	for k in items:
 		if k in keys:
 			good[k] = items[k]
 		else:
