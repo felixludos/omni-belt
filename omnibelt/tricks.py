@@ -149,7 +149,7 @@ class innerchild:
 	
 	
 	
-def extract_function_signature(fn, args, kwargs, default_fn):
+def extract_function_signature(fn, args, kwargs, default_fn=None, allow_positional=True):
 	params = inspect.signature(fn).parameters
 	
 	arg_idx = 0
@@ -158,18 +158,26 @@ def extract_function_signature(fn, args, kwargs, default_fn):
 	
 	for n, p in params.items():
 		if p.kind == p.POSITIONAL_ONLY:
+			if not allow_positional:
+				raise TypeError(f'Function {fn.__name__} has a positional only argument ({n})')
 			if arg_idx < len(args):
 				fixed_args.append(args[arg_idx])
 				arg_idx += 1
 			else:
 				try:
+					if default_fn is None:
+						raise KeyError
 					val = default_fn(n)
 				except KeyError:
 					pass
 				else:
 					fixed_args.append(val)
 		elif p.kind == p.VAR_POSITIONAL:
+			if not allow_positional:
+				raise TypeError(f'Function {fn.__name__} has variable positional arguments ({n})')
 			try:
+				if default_fn is None:
+					raise KeyError
 				val = default_fn(n)
 			except KeyError:
 				fixed_args.extend(args[arg_idx:])
@@ -178,37 +186,36 @@ def extract_function_signature(fn, args, kwargs, default_fn):
 				fixed_args.extend(val)
 		elif p.kind == p.VAR_KEYWORD:
 			try:
+				if default_fn is None:
+					raise KeyError
 				val = default_fn(n)
 			except KeyError:
 				fixed_kwargs.update(kwargs)
 			else:
 				fixed_kwargs.update(val)
 
-		elif p.kind == p.KEYWORD_ONLY:
-			if n in kwargs:
-				fixed_kwargs[n] = kwargs[n]
-			else:
-				try:
-					val = default_fn(n)
-				except KeyError:
-					pass
-				else:
-					fixed_kwargs[n] = val
-
 		else:
 			if n in kwargs:
 				fixed_kwargs[n] = kwargs[n]
-			elif arg_idx < len(args):
-				fixed_args.append(args[arg_idx])
+			elif p.kind != p.KEYWORD_ONLY and arg_idx < len(args):
+				if allow_positional:
+					fixed_args.append(args[arg_idx])
+				else:
+					fixed_kwargs[n] = args[arg_idx]
 				arg_idx += 1
 			else:
 				try:
+					if default_fn is None:
+						raise KeyError
 					val = default_fn(n)
 				except KeyError:
 					pass
 				else:
 					fixed_kwargs[n] = val
-	return fixed_args, fixed_kwargs
+	if allow_positional:
+		return fixed_args, fixed_kwargs
+	assert len(fixed_args) == 0, f'fixed_args: {fixed_args}'
+	return fixed_kwargs
 
 
 

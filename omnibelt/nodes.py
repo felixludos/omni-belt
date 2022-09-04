@@ -1,6 +1,6 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable
 from datetime import datetime, timezone
-from collections import OrderedDict, UserList
+from collections import OrderedDict, UserList, UserDict
 from .ordered_set import OrderedSet
 from .typing import agnosticmethod, unspecified_argument
 
@@ -331,6 +331,23 @@ class TreeNode(ParentNode, StructureNode):
 					node._parent = None
 
 
+class TableTreeNode(StructureNode): # Table Tree Node (tree where children have an address)
+	class Structure(NodeEdgeStructure):
+		class NodeEdges(NodeEdgeStructure.NodeEdges, TableStructure):
+			def register(self, addr: Hashable, node: ParentNode) -> 'NodeEdges':
+				node._parent = self.base
+				return super().register(addr, node)
+
+			def deregister(self, addr: Hashable) -> ParentNode:
+				node = super().deregister(addr)
+				node._parent = None
+				return node
+
+			def deregister_base(self):
+				for node in self:
+					node._parent = None
+
+
 
 class DiGraphNode(MultiParentNode, StructureNode):
 	class Structure(NodeEdgeStructure):
@@ -452,39 +469,140 @@ class StampedNode(OmniNode):
 
 
 
-class SubNode(PayloadNode):
-	class SubStructure(TableStructure):
-		pass
-	
-	
-	def __init__(self, sub=unspecified_argument, **kwargs):
+# if you need global structure in one object see TreeNode and TableTreeNode above (children, but not parent).
+# if not, use SubNode (parent and children only stored locally)
+
+
+class LocalNode(PayloadNode):
+	ChildrenStructure = None
+
+	def from_raw(self, raw: Any, **kwargs) -> 'LocalNode':
+		return raw
+
+
+	def __init__(self, payload=unspecified_argument, *,
+	             parent=unspecified_argument, children=unspecified_argument, **kwargs):
 		super().__init__(**kwargs)
-		if sub is unspecified_argument:
-			sub = self.SubStructure()
-		self._sub = sub
-	
+		self._payload = payload
+		self._parent = parent
+		if children is unspecified_argument:
+			children = self.ChildrenStructure()
+		self._children = children
+
+
+	@property
+	def parent(self):
+		return None if self._parent is unspecified_argument else self._parent
+
 	
 	@property
 	def payload(self):
-		return OrderedDict([(key, value.payload) for key, value in self._sub.items()])
-	
-	
-	def sub(self, addr=unspecified_argument):
-		return self._sub.get(addr)
-	
-	
-	def subs(self, items=False):
-		if items:
-			return self._sub.items()
-		return self._sub.keys()
-	
-	
-	def add_sub(self, addr: Hashable, node: OmniNode):
-		return self._sub.register(addr, node)
-	
-	
-	def del_sub(self, addr: Hashable):
-		return self._sub.deregister(addr)
+		if self._payload is unspecified_argument:
+			return self._default_payload()
+		return self._payload
+
+	class _empty_value:
+		pass
+
+
+	def __getitem__(self, addr: Hashable):
+		raise NotImplementedError
+
+
+	def __setitem__(self, addr: Hashable, node: 'LocalNode'):
+		raise NotImplementedError
+
+
+	def __delitem__(self, key):
+		raise NotImplementedError
+
+
+	def _iterate_children(self):
+		raise NotImplementedError
+
+
+	def _default_payload(self):
+		raise NotImplementedError
+
+
+	def children(self, keys=True, skip_empty=False):
+		for addr, node in self._iterate_children():
+			if skip_empty and node is self._empty_value:
+				continue
+			if keys:
+				yield addr, node
+			else:
+				yield node
+
+	def get(self, addr: Hashable, default: Any = unspecified_argument):
+		try:
+			return self[addr]
+		except KeyError:
+			if default is unspecified_argument:
+				raise
+			return default
+
+
+	def set(self, addr: Hashable, value: Any, **kwargs):
+		self[addr] = self.from_raw(value, **kwargs)
+
+
+	def remove(self, addr: Hashable):
+		del self[addr]
+
+
+	def __iter__(self):
+		return self.items()
+
+
+
+class SparseSubNode(LocalNode):
+	ChildrenStructure = OrderedDict
+
+	def __getitem__(self, addr: Hashable):
+		return self._children[addr]
+
+	def __setitem__(self, addr: Hashable, node: 'LocalNode'):
+		self._children[addr] = node
+
+	def _iterate_children(self):
+		return self._children.items()
+
+	def _default_payload(self):
+		return self.ChildrenStructure([(key, value.payload) for key, value in self._children.items()])
+
+
+
+class DenseSubNode(LocalNode):
+	SubStructure = list
+
+
+	def _parse_index(self, addr: Hashable, strict=False) -> int:
+		if isinstance(addr, str):
+			addr = int(addr)
+		if not isinstance(addr, int):
+			raise TypeError(addr)
+		if strict and not (-len(self._children) <= addr < len(self._children)):
+			raise IndexError(addr)
+		return addr
+
+	def __getitem__(self, addr: Hashable):
+		return self._children[self._parse_index(addr, strict=True)]
+
+	def __setitem__(self, addr: Hashable, node: 'LocalNode'):
+		idx = self._parse_index(addr, strict=False)
+		if idx == len(self._children):
+			self._children.append(node)
+		elif -len(self._children) <= idx < len(self._children):
+			self._children[idx] = node
+		else:
+			raise IndexError(addr)
+
+	def _iterate_children(self):
+		return enumerate(self._children)
+
+	def _default_payload(self):
+		return self.ChildrenStructure([value.payload for value in self._children])
 
 
 
