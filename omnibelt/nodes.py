@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable
+from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Type
 from datetime import datetime, timezone
 from collections import OrderedDict, UserList, UserDict
 from .ordered_set import OrderedSet
@@ -307,7 +307,7 @@ class GraphNode(StructureNode):
 
 
 
-class TreeNode(ParentNode, StructureNode):
+class GlobalTreeNode(ParentNode, StructureNode):
 	@property
 	def children(self) -> OmniStructure:
 		return self.structure
@@ -470,18 +470,23 @@ class StampedNode(OmniNode):
 
 
 # if you need global structure in one object see TreeNode and TableTreeNode above (children, but not parent).
-# if not, use SubNode (parent and children only stored locally)
+# if not, use LocalNode (parent and children only stored locally)
 
 
 class LocalNode(PayloadNode):
+	DefaultNode = None
 	ChildrenStructure = None
 
-	def from_raw(self, raw: Any, **kwargs) -> 'LocalNode':
-		return raw
+	@classmethod
+	def from_raw(cls, raw: Any, *, parent: Optional['LocalNode'] = unspecified_argument, **kwargs) -> 'LocalNode':
+		if isinstance(raw, LocalNode):
+			raw.parent = parent
+			return raw
+		return cls(payload=raw, parent=parent, **kwargs)
 
 
-	def __init__(self, payload=unspecified_argument, *,
-	             parent=unspecified_argument, children=unspecified_argument, **kwargs):
+	def __init__(self, payload=unspecified_argument, *, parent: Optional['LocalNode'] = unspecified_argument,
+	             children: Optional[ChildrenStructure] = unspecified_argument, **kwargs):
 		super().__init__(**kwargs)
 		self._payload = payload
 		self._parent = parent
@@ -493,13 +498,20 @@ class LocalNode(PayloadNode):
 	@property
 	def parent(self):
 		return None if self._parent is unspecified_argument else self._parent
-
+	@parent.setter
+	def parent(self, value):
+		self._parent = value
+	
 	
 	@property
 	def payload(self):
 		if self._payload is unspecified_argument:
 			return self._default_payload()
 		return self._payload
+	@payload.setter
+	def payload(self, value):
+		self._payload = value
+
 
 	class _empty_value:
 		pass
@@ -534,6 +546,7 @@ class LocalNode(PayloadNode):
 			else:
 				yield node
 
+
 	def get(self, addr: Hashable, default: Any = unspecified_argument):
 		try:
 			return self[addr]
@@ -552,18 +565,21 @@ class LocalNode(PayloadNode):
 
 
 	def __iter__(self):
-		return self.items()
+		return self.children()
 
 
 
-class SparseSubNode(LocalNode):
+class SparseNode(LocalNode):
 	ChildrenStructure = OrderedDict
 
-	def __getitem__(self, addr: Hashable):
+	def __getitem__(self, addr: Hashable) -> LocalNode:
 		return self._children[addr]
 
-	def __setitem__(self, addr: Hashable, node: 'LocalNode'):
+	def __setitem__(self, addr: Hashable, node: LocalNode):
 		self._children[addr] = node
+
+	def __delitem__(self, addr: Hashable):
+		del self._children[addr]
 
 	def _iterate_children(self):
 		return self._children.items()
@@ -573,11 +589,10 @@ class SparseSubNode(LocalNode):
 
 
 
-class DenseSubNode(LocalNode):
-	SubStructure = list
+class DenseNode(LocalNode):
+	ChildrenStructure = list
 
-
-	def _parse_index(self, addr: Hashable, strict=False) -> int:
+	def _parse_index(self, addr: Hashable, strict: bool = False) -> int:
 		if isinstance(addr, str):
 			addr = int(addr)
 		if not isinstance(addr, int):
@@ -586,10 +601,10 @@ class DenseSubNode(LocalNode):
 			raise IndexError(addr)
 		return addr
 
-	def __getitem__(self, addr: Hashable):
+	def __getitem__(self, addr: Hashable) -> LocalNode:
 		return self._children[self._parse_index(addr, strict=True)]
 
-	def __setitem__(self, addr: Hashable, node: 'LocalNode'):
+	def __setitem__(self, addr: Hashable, node: LocalNode):
 		idx = self._parse_index(addr, strict=False)
 		if idx == len(self._children):
 			self._children.append(node)
@@ -598,11 +613,135 @@ class DenseSubNode(LocalNode):
 		else:
 			raise IndexError(addr)
 
+	def __delitem__(self, addr: Hashable):
+		del self._children[self._parse_index(addr, strict=True)]
+	
 	def _iterate_children(self):
 		return enumerate(self._children)
 
 	def _default_payload(self):
 		return self.ChildrenStructure([value.payload for value in self._children])
+
+
+
+class TreeNode(LocalNode):
+	DefaultNode: Type['TreeNode'] = None
+	DenseNode: Type['TreeNode'] = None
+	SparseNode: Type['TreeNode'] = None
+	
+	
+	@classmethod
+	def from_raw(cls, raw: Any, *, parent: Optional['LocalNode'] = unspecified_argument, **kwargs) -> 'LocalNode':
+		if isinstance(raw, dict):
+			node = cls.SparseNode(parent=parent, **kwargs)
+			for key, value in raw.items():
+				node.set(key, cls.from_raw(value, parent=node, **kwargs))
+		elif isinstance(raw, (tuple, list)):
+			node = cls.DenseNode(parent=parent, **kwargs)
+			for idx, value in enumerate(raw):
+				node.set(idx, cls.from_raw(value, parent=node, **kwargs))
+		else:
+			node = cls.DefaultNode(payload=raw, parent=parent, **kwargs)
+		return node
+
+
+class TreeSparseNode(SparseNode, TreeNode): pass
+class TreeDenseNode(DenseNode, TreeNode): pass
+TreeNode.SparseNode = TreeSparseNode
+TreeNode.DefaultNode = TreeSparseNode
+TreeNode.DenseNode = TreeDenseNode
+
+
+class ConvertableNode(TreeNode):
+	def _convert_child(self, addr: Hashable, new_type: Type[LocalNode]):
+		old = self.get(addr)
+		new = new_type(parent=self)
+		for key, value in old.children():
+			new.set(key, value)
+		self.set(addr, new)
+		return new
+	
+	
+	def convert_to_sparse(self, addr: Hashable):
+		return self._convert_child(addr, self.SparseNode)
+
+
+	def convert_to_dense(self, addr: Hashable):
+		return self._convert_child(addr, self.DenseNode)
+
+
+
+class AddressNode(LocalNode):
+	_address_delimiter = '.'
+	
+	
+	class ConnectorError(KeyError):
+		def __init__(self, node, current, rest):
+			super().__init__(current)
+			self.node = node
+			self.current = current
+			self.rest = rest
+	
+	
+	def _evaluate_address(self, addr: str) -> Tuple['AddressNode', str]:
+		current, *rest = addr.split(self._address_delimiter)
+		if len(rest):
+			try:
+				node = self[current] if len(current) else self.parent
+			except KeyError:
+				node = None
+			if not isinstance(node, AddressNode):
+				raise self.ConnectorError(self, current, rest)
+			return node._evaluate_address(self._address_delimiter.join(rest))
+		return self, current
+	
+
+	def get(self, addr: str, default: Any = unspecified_argument):
+		node, key = self._evaluate_address(addr)
+		return super(node, AddressNode).get(key, default)
+		
+
+	def set(self, addr: str, value: Any, **kwargs):
+		node, key = self._evaluate_address(addr)
+		return super(node, AddressNode).set(key, value, **kwargs)
+	
+
+	def remove(self, addr: str):
+		node, key = self._evaluate_address(addr)
+		return super(node, AddressNode).remove(key)
+
+
+
+class AutoAddressNode(AddressNode):
+	def _evaluate_address(self, addr: str, auto_create: bool = False) -> Tuple['AddressNode', str]:
+		try:
+			return super()._evaluate_address(addr)
+		except self.ConnectorError as e:
+			if not auto_create:
+				raise
+			new_type = self.__class__ if self.DefaultNode is None else self.DefaultNode
+			e.node.set(e.current, new_type(parent=e.node))
+			return e.node._evaluate_address(self._address_delimiter.join((e.current, *e.rest)),
+			                                auto_create=auto_create)
+
+
+	def set(self, addr: str, value: Any, **kwargs):
+		node, key = self._evaluate_address(addr, auto_create=True)
+		return super(node, AddressNode).set(key, value, **kwargs)
+	
+	
+	def get(self, addr: str, default: Any = unspecified_argument):
+		node, key = self._evaluate_address(addr, auto_create=False)
+		return super(node, AddressNode).get(key, default)
+
+
+
+class AutoTreeNode(AutoAddressNode, ConvertableNode, TreeNode): pass
+class AutoTreeSparseNode(SparseNode, AutoTreeNode): pass
+class AutoTreeDenseNode(DenseNode, AutoTreeNode): pass
+AutoTreeNode.SparseNode = TreeSparseNode
+AutoTreeNode.DefaultNode = TreeSparseNode
+AutoTreeNode.DenseNode = TreeDenseNode
 
 
 
