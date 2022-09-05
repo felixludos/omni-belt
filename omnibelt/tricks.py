@@ -149,7 +149,7 @@ class innerchild:
 	
 	
 	
-def extract_function_signature(fn, args, kwargs, default_fn=None, allow_positional=True):
+def extract_function_signature(fn, args=(), kwargs={}, *, default_fn=None, allow_positional=True):
 	params = inspect.signature(fn).parameters
 	
 	arg_idx = 0
