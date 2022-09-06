@@ -553,7 +553,13 @@ class LocalNode(PayloadNode):
 
 
 	def _default_payload(self):
-		raise NotImplementedError
+		return self.to_python()
+
+
+	def to_python(self):
+		if not self.has_payload:
+			raise ValueError('no payload')
+		return self.payload
 
 
 	def children(self, keys=True, skip_empty=False):
@@ -626,8 +632,8 @@ class SparseNode(LocalNode):
 	def _iterate_children(self):
 		return self._children.items()
 
-	def _default_payload(self):
-		return OrderedDict([(key, value.payload) for key, value in self._children.items()])
+	def to_python(self):
+		return OrderedDict([(key, value.to_python()) for key, value in self._children.items()])
 
 
 
@@ -674,8 +680,8 @@ class DenseNode(LocalNode):
 		for i, x in enumerate(self._children):
 			yield str(i), x
 
-	def _default_payload(self):
-		return [value.payload for value in self._children]
+	def to_python(self):
+		return [value.to_python() for value in self._children]
 
 	def prepend(self, val: Any):
 		self._children.insert(0, self.from_raw(val))

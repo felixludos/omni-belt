@@ -1,5 +1,6 @@
+from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, Iterator
 import inspect
-
+from .typing import unspecified_argument
 
 class ClassDescriptable(type):
 	def __setattr__(self, key, val):
@@ -146,8 +147,42 @@ class innerchild:
 			raise self.MissingParent(owner, cls_name)
 		child = type(cls_name, (self.cls, parent), {})
 		setattr(owner, name, child)
-	
-	
+
+
+from inspect import Parameter
+
+def deep_method_finder(typ: type, method: str, *, break_fn: Callable[[type],bool] = None) -> Iterator[Callable]:
+	on_parents = False
+	for cls in typ.mro():
+		fn = cls.__dict__.get(method, None)
+		if fn is not None:
+			if on_parents and break_fn is not None and break_fn(fn):
+				break
+			on_parents = True
+			yield fn
+
+def collect_fn_kwargs(*fns: Callable, default: Any = Parameter.empty, ignore_positional_only=False):
+	kwargs = {}
+
+	for fn in fns:
+		params = inspect.signature(fn).parameters
+		for param in params.values():
+			if param.kind == param.POSITIONAL_ONLY and not ignore_positional_only:
+				raise TypeError(f'Positional only arguments are not supported: {param.name}')
+			elif param.kind in {param.POSITIONAL_OR_KEYWORD, param.KEYWORD_ONLY} and param.name not in kwargs:
+				kwargs[param.name] = default if param.default is param.empty else param.default
+
+	return kwargs
+
+def collect_init_kwargs(typ: type, default: Any = Parameter.empty, *, end_type: Union[Sequence[Type], Type] = None,
+                        ignore_positional_only=False, break_fn=None):
+	if break_fn is None:
+		if end_type is not None and isinstance(end_type, type):
+			end_type = {end_type,}
+		break_fn = (lambda cls: True) if end_type is None else (lambda cls: cls in end_type)
+	return collect_fn_kwargs(*deep_method_finder(typ, method='__init__', break_fn=break_fn),
+	                         default=default, ignore_positional_only=ignore_positional_only)
+
 	
 def extract_function_signature(fn, args=(), kwargs={}, *, default_fn=None, allow_positional=True):
 	params = inspect.signature(fn).parameters
