@@ -1,31 +1,180 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, Iterator
+import types
 import inspect
 from .typing import unspecified_argument
 
 
 
-class custom_super(type):
-	# def __new__(cls, name, bases, attrs):
-	# 	return super().__new__(cls, name, bases, attrs)
-	
-	def __getattribute__(self, item):
-		ignore_flag = super().__getattribute__('_skip_dest_flag')
-		if ignore_flag and self is Dest:
-			raise AttributeError(item)
-		
-		self._skip_dest_flag = self is Shield
-		print('dest', self, item)
-		return super().__getattribute__(item)
-	
-	pass
+# class _customizable_super_parent: pass # hidden parent class to hold the delegators
+# class customizable_super(_customizable_super_parent):
+# 	def captured_super(self, src, name, args, kwargs):
+# 		'''
+# 		Called when methods decorated with @capture_super call super() (without parameters).
+#
+# 		:param src: the class from which the method was called
+# 		:param name: of the method being called
+# 		:param args: positional arguments passed to the method
+# 		:param kwargs: keyword arguments passed to the method
+# 		:return: output of the desired effect of super().[name](*args, **kwargs)
+# 		'''
+# 		return getattr(super(src, self), name)(*args, **kwargs)
+#
+#
+#
+# class capture_super:
+# 	_child_capturer = customizable_super # gets set as the __class__ of methods decoared with @capture_super
+# 	_parent_capturer = _customizable_super_parent # contains the corresponding delegator to execute capture
+#
+# 	def __init__(self, fn=None, ):#use_method_maker=True):
+# 		self.fn = fn
+# 		self._is_setup = False
+# 		# self.use_method_maker = use_method_maker
+#
+# 	def __call__(self, fn):
+# 		self.fn = fn
+# 		return self
+#
+# 	def setup(self, name, owner):
+# 		self._is_setup = True
+# 		self.name = name
+# 		self.owner = owner
+#
+# 		if self.fn is not None:
+# 			setattr(self._parent_capturer, self.name, self.run_delegator(self.name))
+# 		return self
+#
+# 	def __set_name__(self, owner, name):
+# 		setattr(owner, name, self.setup(name, owner))
+#
+# 	def __get__(self, instance, owner):
+# 		if not self._is_setup:
+# 			raise RuntimeError(f'{self.__class__.__name__} not setup properly '
+# 			                   f'(call setup(name, owner) or use as decorator)')
+# 		if self.fn is not None and self.fn.__closure__ is not None:
+# 			self.fn.__closure__[0].cell_contents = self._child_capturer
+#
+# 		if instance is None:
+# 			# if not self.use_method_maker:
+# 			# 	return self.fn
+# 			return self.method_delay(self.fn, self.owner,
+# 			                         self.run_delegator.single_run.instance_trigger.format(name=self.name))
+#
+# 		setattr(instance, self.run_delegator.single_run.instance_trigger.format(name=self.name), self.owner)
+# 		return types.MethodType(self.fn, instance)
+#
+# 		# if instance is not None:
+# 		# 	setattr(instance, self.run_delegator.single_run.instance_trigger.format(name=self.name), self.owner)
+# 		#
+# 		# return self.fn if instance is None else types.MethodType(self.fn, instance)
+#
+#
+# 	class method_delay:
+# 		def __init__(self, fn, owner, flag):
+# 			self.fn = fn
+# 			self.owner = owner
+# 			self.flag = flag
+#
+# 		def __call__(self, instance, *args, **kwargs):
+# 			setattr(instance, self.flag, self.owner)
+# 			return self.fn(instance, *args, **kwargs)
+#
+#
+# 	class run_delegator: # located in _parent_capturer and checks if instance can trigger a capture of a method
+# 		def __init__(self, name):
+# 			self.name = name
+#
+# 		def __get__(self, instance, owner):
+# 			if instance is None:
+# 				raise AttributeError(self.name)
+#
+# 			true_owner = getattr(instance, self.single_run.instance_trigger.format(name=self.name), None)
+# 			if true_owner is None:
+# 				# return getattr(instance, self.name)
+# 				return getattr(super(owner, instance), self.name)
+# 				# raise AttributeError(self.name)
+#
+# 			return self.single_run(instance, true_owner, self.name)
+#
+#
+# 		class single_run: # created by delegator for a single run with a specific instance and method
+# 			instance_trigger = '_invisible_super_trigger_for_{name}'
+#
+# 			def __init__(self, obj, cls, name):
+# 				self.obj = obj
+# 				self.cls = cls
+# 				self.name = name
+#
+# 			def clean_up(self):
+# 				key = self.instance_trigger.format(name=self.name)
+# 				if hasattr(self, key):
+# 					delattr(self.obj, key)
+#
+# 			def __call__(self, *args, **kwargs):
+# 				out = self.run(self.cls, self.obj, self.name, args, kwargs)
+# 				self.clean_up()
+# 				return out
+#
+# 			@staticmethod
+# 			def run(cls, obj, name, args, kwargs):
+# 				return obj.captured_super(cls, name, args, kwargs)
 
 
 
 
+# Example usage:
+# class A(customizable_super):
+#     def captured_super(self, src, name, args, kwargs):
+#         print('!! captured', self, src, name, args, kwargs)
+#         return super().captured_super(src, name, args, kwargs)
+#
+#     def f(self, a=1):
+#         print('A.f', self, a)
+#         # print(super().f())
+#
+# class B(A):
+#     x = -10
+#
+#     def f(self, a=2):
+#         print('B.f', self, a)
+#         super().f()
+#
+# # @enable_hijacks
+# class C(B):
+#     x = 0
+#     @capture_super
+#     def f(self, a=3):
+#         print('C.f', self, a)
+#         super().f()
+#
+# class D(C):
+#     def f(self, a=4):
+#         print('D.f', self, a)
+#         super().f()
+#
+# class E(D):
+#     @capture_super
+#     def f(self, a=5):
+#         print('E.f', self, a)
+#         super().f()
+#
+# class F(E):
+#     def f(self, a=6):
+#         print('F.f', self, a)
+#         super().f()
 
+# A().f()
+# print()
+# B().f()
+# print()
+# C().f()
+# print()
+# D().f()
+# print()
+# E().f()
+# print()
+# F().f()
 
-
-
+###################################################
 
 class ClassDescriptable(type):
 	def __setattr__(self, key, val):
@@ -90,17 +239,202 @@ class Scope(metaclass=MROMeta):
 
 
 
-class method_wrapper:
-	def __init__(self, fn=None):
+class method_decorator:
+	def __init__(self, fn=None, *, enforce_setup=True):
 		self.fn = fn
-
+		self._enforce_setup = enforce_setup
+		self._is_setup = False
 
 	def __call__(self, fn):
 		self.fn = fn
 		return self
 
 
-	def __get__(self, obj, cls=None):
+	def setup(self, owner, name=None):
+		self._is_setup = True
+		if name is None:
+			name = self.fn.__name__
+		self._setup(owner, name)
+		return self
+
+
+	def _setup(self, owner: Type, name: str):
+		pass
+
+
+	def __set_name__(self, owner, name):
+		setattr(owner, name, self.setup(owner, name))
+
+
+	def __get__(self, instance, owner):
+		if self._enforce_setup and not self._is_setup:
+			raise RuntimeError(f'{self.__class__.__name__} not setup properly '
+			                   f'(call .setup(name, owner) or use as decorator)')
+		return self.package(instance, owner)
+
+
+	def package(self, instance, owner):
+		return self.fn if instance is None else types.MethodType(self.fn, instance)
+
+
+
+class method_locator(method_decorator):
+	def _setup(self, owner, name):
+		self.location = owner
+		return super()._setup(owner, name)
+
+
+
+class method_binder(method_decorator):
+	class future_method:
+		def __init__(self, fn, owner, instance=None):
+			self.fn = fn
+			self.instance = instance
+			self.owner = owner
+
+		def __repr__(self):
+			return f'<future_method {self.fn.__name__} of {self.owner.__name__}>' if self.instance is None \
+				else f'<future_method {self.fn.__name__} of {self.owner.__name__} bound to {self.instance}>'
+
+		def __call__(self, *args, **kwargs):
+			if self.instance is None:
+				assert len(args), 'no instance to call method on'
+				self.instance = args[0]
+				args = args[1:]
+			return self.fn_call(self.fn, self.instance, *args, **kwargs)
+
+		@staticmethod
+		def fn_call(fn, instance, *args, **kwargs):
+			return fn(instance, *args, **kwargs)
+
+
+	def package(self, instance, owner):
+		return self.future_method(self.fn, owner, instance)
+
+
+
+class capturable_method:
+	def captured_method_call(self, src, fn, args, kwargs):
+		return fn(self, *args, **kwargs)
+
+
+class captured_method(method_locator, method_binder):
+	_capturer_type = None
+
+	class future_method(method_binder.future_method):
+		def fn_call(self, fn, instance, *args, **kwargs):
+			return instance.captured_method_call(self.owner, fn, args, kwargs)
+
+
+	def package(self, instance, owner):
+		return self.future_method(self.fn, self.location, instance)
+
+
+
+
+class _capturable_super_parent: pass # hidden parent class to hold the delegators
+class capturable_super(_capturable_super_parent):
+	def captured_super_call(self, src, name, args, kwargs):
+		'''
+		Called when methods decorated with @capture_super call super() (without parameters).
+
+		:param src: the class from which the method was called
+		:param name: of the method being called
+		:param args: positional arguments passed to the method
+		:param kwargs: keyword arguments passed to the method
+		:return: output of the desired effect of super().[name](*args, **kwargs)
+		'''
+		return getattr(super(src, self), name)(*args, **kwargs)
+
+
+
+class captured_super(method_locator, method_binder):
+	_child_capturer = capturable_super # gets set as the __class__ of methods decoared with @capture_super
+	_parent_capturer = _capturable_super_parent # contains the corresponding delegator to execute capture
+
+
+	def _setup(self, owner, name):
+		self.name = name
+		if self.fn is not None:
+			setattr(self._parent_capturer, self.name, self.run_delegator(self.name))
+
+		# if self.fn is not None and self.fn.__closure__ is not None:
+		# 	self.fn.__closure__[0].cell_contents = self._child_capturer
+		return super()._setup(owner, name)
+
+
+	def package(self, instance, owner):
+		if self.fn is not None and self.fn.__closure__ is not None:
+			self.fn.__closure__[0].cell_contents = self._child_capturer
+		return self.future_method(self.fn, self.location, instance,
+			self.run_delegator.single_run.instance_trigger.format(name=self.name))
+
+
+	class future_method(method_binder.future_method):
+		def __init__(self, fn, owner, instance=None, flag=None):
+			super().__init__(fn, owner, instance)
+			self.flag = flag
+
+		def fn_call(self, fn, instance, *args, **kwargs):
+			setattr(instance, self.flag, self.owner)
+			return super().fn_call(fn, instance, *args, **kwargs)
+
+
+	class run_delegator: # located in _parent_capturer and checks if instance can trigger a capture of a method
+		def __init__(self, name):
+			self.name = name
+
+		def __get__(self, instance, owner):
+			if instance is None:
+				raise AttributeError(self.name)
+
+			true_owner = getattr(instance, self.single_run.instance_trigger.format(name=self.name), None)
+			if true_owner is None:
+				# return getattr(instance, self.name)
+				return getattr(super(owner, instance), self.name)
+				# raise AttributeError(self.name)
+
+			return self.single_run(instance, true_owner, self.name)
+
+
+		class single_run: # created by delegator for a single run with a specific instance and method
+			instance_trigger = '_invisible_super_trigger_for_{name}'
+
+			def __init__(self, obj, cls, name):
+				self.obj = obj
+				self.cls = cls
+				self.name = name
+
+			def clean_up(self):
+				key = self.instance_trigger.format(name=self.name)
+				if hasattr(self, key):
+					delattr(self.obj, key)
+
+			def __call__(self, *args, **kwargs):
+				out = self.run(self.cls, self.obj, self.name, args, kwargs)
+				self.clean_up()
+				return out
+
+			@staticmethod
+			def run(cls, obj, name, args, kwargs):
+				return obj.captured_super_call(cls, name, args, kwargs)
+
+
+
+class Capturable(capturable_method, capturable_super):
+	pass
+
+
+class captured(captured_super, captured_method):
+	class future_method(captured_super.future_method, captured_method.future_method): pass
+
+
+
+
+
+
+class method_wrapper(method_decorator):
+	def package(self, obj, cls=None):
 		self.obj, self.cls = obj, cls
 		return self.apply_fn
 
@@ -200,13 +534,13 @@ def collect_fn_kwargs(*fns: Callable, default: Any = Parameter.empty, ignore_pos
 	return kwargs
 
 def collect_init_kwargs(typ: type, default: Any = Parameter.empty, *, end_type: Union[Sequence[Type], Type] = None,
-                        ignore_positional_only=False, break_fn=None):
+						ignore_positional_only=False, break_fn=None):
 	if break_fn is None:
 		if end_type is not None and isinstance(end_type, type):
 			end_type = {end_type,}
 		break_fn = (lambda cls: True) if end_type is None else (lambda cls: cls in end_type)
 	return collect_fn_kwargs(*deep_method_finder(typ, method='__init__', break_fn=break_fn),
-	                         default=default, ignore_positional_only=ignore_positional_only)
+							 default=default, ignore_positional_only=ignore_positional_only)
 
 	
 def extract_function_signature(fn, args=(), kwargs={}, *, default_fn=None, allow_positional=True):
