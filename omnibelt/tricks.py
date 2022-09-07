@@ -2,6 +2,31 @@ from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, 
 import inspect
 from .typing import unspecified_argument
 
+
+
+class custom_super(type):
+	# def __new__(cls, name, bases, attrs):
+	# 	return super().__new__(cls, name, bases, attrs)
+	
+	def __getattribute__(self, item):
+		ignore_flag = super().__getattribute__('_skip_dest_flag')
+		if ignore_flag and self is Dest:
+			raise AttributeError(item)
+		
+		self._skip_dest_flag = self is Shield
+		print('dest', self, item)
+		return super().__getattribute__(item)
+	
+	pass
+
+
+
+
+
+
+
+
+
 class ClassDescriptable(type):
 	def __setattr__(self, key, val):
 		existing = inspect.getattr_static(self, key, None)
