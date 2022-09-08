@@ -1,4 +1,5 @@
-from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Type, Iterable
+
+from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Type, Iterator, Iterable
 from datetime import datetime, timezone
 from collections import OrderedDict, UserList, UserDict
 from .ordered_set import OrderedSet
@@ -529,14 +530,15 @@ class LocalNode(PayloadNode):
 	def has_payload(self):
 		return self._payload is not unspecified_argument
 
-	def __len__(self):
-		return self._num_children()
 
 	@property
 	def is_leaf(self):
 		for _ in self.children(keys=False, skip_empty=True):
 			return False
 		return True
+
+	def __len__(self):
+		return self._num_children()
 
 	def __contains__(self, addr: Hashable):
 		return self.has(addr)
@@ -598,12 +600,12 @@ class LocalNode(PayloadNode):
 				yield node
 
 
-	def add_all(self, children: Iterable[Tuple[Hashable, 'LocalNode']]):
+	def add_all(self, children: Iterable[Tuple[Hashable, 'LocalNode']], **kwargs) -> None:
 		for addr, node in children:
-			self.set(addr, node)
+			self.set(addr, node, **kwargs)
 
 
-	def get(self, addr: Hashable, default: Any = unspecified_argument):
+	def get(self, addr: Hashable, default: Any = unspecified_argument) -> 'LocalNode':
 		try:
 			return self._get(addr)
 		except self.MissingKey:
@@ -612,17 +614,17 @@ class LocalNode(PayloadNode):
 			return default
 
 
-	def set(self, addr: Hashable, value: Any):
-		node = self.from_raw(value, parent=self)
+	def set(self, addr: Hashable, value: Any, **kwargs) -> 'LocalNode':
+		node = self.from_raw(value, parent=self, **kwargs)
 		self._set(addr, node)
 		return node
 
 
-	def has(self, addr: Hashable):
+	def has(self, addr: Hashable) -> bool:
 		return self._has(addr)
 
 
-	def remove(self, addr: Hashable):
+	def remove(self, addr: Hashable) -> None:
 		return self._remove(addr)
 
 
@@ -737,12 +739,12 @@ class TreeNode(LocalNode):
 		if isinstance(raw, dict):
 			node = cls.SparseNode(parent=parent, **kwargs)
 			for key, value in raw.items():
-				node.set(key, cls.from_raw(value, parent=node, **kwargs))
+				node.set(key, cls.from_raw(value, parent=node, **kwargs), **kwargs)
 		elif isinstance(raw, (tuple, list)):
 			node = cls.DenseNode(parent=parent, **kwargs)
 			for idx, value in enumerate(raw):
 				idx = str(idx)
-				node.set(idx, cls.from_raw(value, parent=node, **kwargs))
+				node.set(idx, cls.from_raw(value, parent=node, **kwargs), **kwargs)
 		else:
 			node = cls.DefaultNode(payload=raw, parent=parent, **kwargs)
 		return node
@@ -751,8 +753,7 @@ class TreeNode(LocalNode):
 	@classmethod
 	def from_dict(cls, raw: Dict[str, Any], *, parent: Optional['LocalNode'] = unspecified_argument,
 	              **kwargs) -> 'LocalNode':
-		node = cls.SparseNode(parent=parent, **kwargs)
-		return cls.from_raw(raw, **kwargs)
+		return cls.from_raw(raw, parent=parent, **kwargs)
 
 
 
@@ -766,7 +767,7 @@ TreeNode.DenseNode = TreeDenseNode
 
 
 class ConvertableNode(TreeNode):
-	def _convert_child(self, addr: Hashable, new_type: Type[LocalNode]):
+	def _convert_child(self, addr: Hashable, new_type: Type[LocalNode]) -> LocalNode:
 		old = self.get(addr)
 		new = new_type(parent=self)
 		for key, value in old.children():
@@ -775,11 +776,11 @@ class ConvertableNode(TreeNode):
 		return new
 	
 	
-	def convert_to_sparse(self, addr: Hashable):
+	def convert_to_sparse(self, addr: Hashable) -> LocalNode:
 		return self._convert_child(addr, self.SparseNode)
 
 
-	def convert_to_dense(self, addr: Hashable):
+	def convert_to_dense(self, addr: Hashable) -> LocalNode:
 		return self._convert_child(addr, self.DenseNode)
 
 
@@ -809,7 +810,7 @@ class AddressNode(LocalNode):
 		return self, current
 
 
-	def flatten(self, include_connector_payloads=True, skip_empty=True):
+	def flatten(self, include_connector_payloads=True, skip_empty=True) -> Iterator[Tuple[str, 'LocalNode']]:
 		for key, value in self.children(skip_empty=skip_empty):
 			assert isinstance(value, AddressNode), f'Unexpected node type: {type(value)}'
 			if (include_connector_payloads and value.has_payload) or value.is_leaf:
@@ -818,22 +819,22 @@ class AddressNode(LocalNode):
 				yield f'{key}{self._address_delimiter}{subkey}', subvalue
 
 
-	def get(self, addr: str, default: Any = unspecified_argument):
+	def get(self, addr: str, default: Any = unspecified_argument) -> 'LocalNode':
 		node, key = self._evaluate_address(addr)
 		return super(AddressNode, node).get(key, default)
 		
 
-	def set(self, addr: str, value: Any):
+	def set(self, addr: str, value: Any, **kwargs) -> 'LocalNode':
 		node, key = self._evaluate_address(addr)
-		return super(AddressNode, node).set(key, value)
+		return super(AddressNode, node).set(key, value, **kwargs)
 
 
-	def has(self, addr: str):
+	def has(self, addr: str) -> bool:
 		node, key = self._evaluate_address(addr)
 		return super(AddressNode, node).has(key)
 
 
-	def remove(self, addr: str):
+	def remove(self, addr: str) -> None:
 		node, key = self._evaluate_address(addr)
 		return super(AddressNode, node).remove(key)
 
