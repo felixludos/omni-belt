@@ -482,6 +482,8 @@ class LocalNode(PayloadNode):
 	class _empty_value: pass
 	_empty_value.payload = _empty_value
 
+	class MissingKey(KeyError): pass
+
 	@classmethod
 	def from_raw(cls, raw: Any, *, parent: Optional['LocalNode'] = unspecified_argument, **kwargs) \
 			-> Union['LocalNode', _empty_value]:
@@ -527,24 +529,48 @@ class LocalNode(PayloadNode):
 	def has_payload(self):
 		return self._payload is not unspecified_argument
 
-
 	def __len__(self):
-		raise NotImplementedError
+		return self._num_children()
 
+	@property
+	def is_leaf(self):
+		for _ in self.children(keys=False, skip_empty=True):
+			return False
+		return True
+
+	def __contains__(self, addr: Hashable):
+		return self.has(addr)
 
 	def __getitem__(self, addr: Hashable):
-		raise NotImplementedError
-
+		return self.get(addr)
 
 	def __setitem__(self, addr: Hashable, node: 'LocalNode'):
+		return self.set(addr, node)
+
+	def __delitem__(self, addr: Hashable):
+		return self.remove(addr)
+
+	def __iter__(self):
+		return self.children()
+
+
+	def _num_children(self):
 		raise NotImplementedError
 
 
-	def __delitem__(self, key):
+	def _get(self, addr: Hashable):
 		raise NotImplementedError
 
 
-	def __contains__(self, item):
+	def _set(self, addr: Hashable, node: 'LocalNode'):
+		raise NotImplementedError
+
+
+	def _remove(self, key):
+		raise NotImplementedError
+
+
+	def _has(self, addr: Hashable):
 		raise NotImplementedError
 
 
@@ -577,16 +603,10 @@ class LocalNode(PayloadNode):
 			self.set(addr, node)
 
 
-	@property
-	def is_leaf(self):
-		for _ in self.children(keys=False, skip_empty=True):
-			return False
-		return True
-
 	def get(self, addr: Hashable, default: Any = unspecified_argument):
 		try:
-			return self[addr]
-		except KeyError:
+			return self._get(addr)
+		except self.MissingKey:
 			if default is unspecified_argument:
 				raise
 			return default
@@ -594,39 +614,38 @@ class LocalNode(PayloadNode):
 
 	def set(self, addr: Hashable, value: Any):
 		node = self.from_raw(value, parent=self)
-		self[addr] = node
+		self._set(addr, node)
 		return node
 
 
 	def has(self, addr: Hashable):
-		return addr in self
+		return self._has(addr)
 
 
 	def remove(self, addr: Hashable):
-		del self[addr]
-
-
-	def __iter__(self):
-		return self.children()
+		return self._remove(addr)
 
 
 
 class SparseNode(LocalNode):
 	ChildrenStructure = OrderedDict
 
-	def __getitem__(self, addr: Hashable) -> LocalNode:
-		return self._children[addr]
+	def _get(self, addr: Hashable) -> LocalNode:
+		try:
+			return self._children[addr]
+		except KeyError:
+			raise self.MissingKey(addr)
 
-	def __setitem__(self, addr: Hashable, node: LocalNode):
+	def _set(self, addr: Hashable, node: LocalNode):
 		self._children[addr] = node
 
-	def __delitem__(self, addr: Hashable):
+	def _remove(self, addr: Hashable):
 		del self._children[addr]
 
-	def __contains__(self, addr: Hashable):
+	def _has(self, addr: Hashable):
 		return addr in self._children
 
-	def __len__(self):
+	def _num_children(self):
 		return len(self._children)
 
 	def _iterate_children(self):
@@ -649,10 +668,13 @@ class DenseNode(LocalNode):
 			raise IndexError(addr)
 		return addr
 
-	def __getitem__(self, addr: Hashable) -> LocalNode:
-		return self._children[self._parse_index(addr, strict=True)]
+	def _get(self, addr: Hashable) -> LocalNode:
+		try:
+			return self._children[self._parse_index(addr, strict=True)]
+		except (IndexError, TypeError):
+			raise self.MissingKey(addr)
 
-	def __setitem__(self, addr: Hashable, node: LocalNode):
+	def _set(self, addr: Hashable, node: LocalNode):
 		idx = self._parse_index(addr, strict=False)
 		if idx == len(self._children):
 			self._children.append(node)
@@ -661,10 +683,10 @@ class DenseNode(LocalNode):
 		else:
 			raise IndexError(addr)
 
-	def __delitem__(self, addr: Hashable):
+	def _remove(self, addr: Hashable):
 		del self._children[self._parse_index(addr, strict=True)]
 
-	def __contains__(self, addr: Hashable):
+	def _has(self, addr: Hashable):
 		try:
 			idx = self._parse_index(addr, strict=False)
 		except IndexError:
@@ -673,7 +695,7 @@ class DenseNode(LocalNode):
 			return False
 		return -len(self._children) <= idx < len(self._children)
 
-	def __len__(self):
+	def _num_children(self):
 		return len(self._children)
 
 	def _iterate_children(self):

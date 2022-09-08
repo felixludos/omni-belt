@@ -253,6 +253,7 @@ class Capturable(capturable_method, capturable_super):
 	pass
 
 
+
 class captured(captured_super, captured_method):
 	class future_method(captured_super.future_method, captured_method.future_method): pass
 
@@ -308,10 +309,15 @@ class auto_init(capturable_method):
 
 
 # Example usage:
-# class A(customizable_super):
-#     def captured_super(self, src, name, args, kwargs):
-#         print('!! captured', self, src, name, args, kwargs)
-#         return super().captured_super(src, name, args, kwargs)
+
+# class A(Capturable):
+#     def captured_super_call(self, src, name, args, kwargs):
+#         print('!! captured super', self, src, name, args, kwargs)
+#         return super().captured_super_call(src, name, args, kwargs)
+#
+#     def captured_method_call(self, src, fn, args, kwargs):
+#         print('!! captured method', self, src, fn, args, kwargs)
+#         return super().captured_method_call(src, fn, args, kwargs)
 #
 #     def f(self, a=1):
 #         print('A.f', self, a)
@@ -324,10 +330,8 @@ class auto_init(capturable_method):
 #         print('B.f', self, a)
 #         super().f()
 #
-# # @enable_hijacks
 # class C(B):
-#     x = 0
-#     @capture_super
+#     @captured
 #     def f(self, a=3):
 #         print('C.f', self, a)
 #         super().f()
@@ -338,7 +342,7 @@ class auto_init(capturable_method):
 #         super().f()
 #
 # class E(D):
-#     @capture_super
+#     @captured
 #     def f(self, a=5):
 #         print('E.f', self, a)
 #         super().f()
@@ -347,7 +351,10 @@ class auto_init(capturable_method):
 #     def f(self, a=6):
 #         print('F.f', self, a)
 #         super().f()
-
+#
+# class G(F):
+#     pass
+#
 # A().f()
 # print()
 # B().f()
@@ -359,6 +366,8 @@ class auto_init(capturable_method):
 # E().f()
 # print()
 # F().f()
+# print()
+# G().f()
 
 ###################################################
 
@@ -452,7 +461,7 @@ def collect_init_kwargs(typ: type, default: Any = Parameter.empty, *, end_type: 
 
 	
 def extract_function_signature(fn: Callable, args: Tuple = (), kwargs: Dict[str, Any] = {}, *,
-                               default_fn: Callable[[str], Any] = None, allow_positional: bool = True) \
+                               default_fn: Callable[[str, Any], Any] = None, allow_positional: bool = True) \
 		-> Union[Tuple[Tuple, Dict[str, Any]], Dict[str, Any]]:
 	params = inspect.signature(fn).parameters
 	
@@ -471,7 +480,7 @@ def extract_function_signature(fn: Callable, args: Tuple = (), kwargs: Dict[str,
 				try:
 					if default_fn is None:
 						raise KeyError
-					val = default_fn(n)
+					val = default_fn(n, p.default)
 				except KeyError:
 					pass
 				else:
@@ -482,7 +491,7 @@ def extract_function_signature(fn: Callable, args: Tuple = (), kwargs: Dict[str,
 			try:
 				if default_fn is None:
 					raise KeyError
-				val = default_fn(n)
+				val = default_fn(n, p.default)
 			except KeyError:
 				fixed_args.extend(args[arg_idx:])
 				arg_idx = len(args)
@@ -492,7 +501,7 @@ def extract_function_signature(fn: Callable, args: Tuple = (), kwargs: Dict[str,
 			try:
 				if default_fn is None:
 					raise KeyError
-				val = default_fn(n)
+				val = default_fn(n, p.default)
 			except KeyError:
 				fixed_kwargs.update(kwargs)
 			else:
@@ -511,7 +520,7 @@ def extract_function_signature(fn: Callable, args: Tuple = (), kwargs: Dict[str,
 				try:
 					if default_fn is None:
 						raise KeyError
-					val = default_fn(n)
+					val = default_fn(n, p.default)
 				except KeyError:
 					pass
 				else:
