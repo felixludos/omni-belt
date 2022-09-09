@@ -866,7 +866,7 @@ class AutoTreeNode(AutoAddressNode, ConvertableNode, TreeNode):
 		self.set(key, node)
 class AutoTreeSparseNode(SparseNode, AutoTreeNode): pass
 class AutoTreeDenseNode(DenseNode, AutoTreeNode):
-	def __contains__(self, addr: Hashable):
+	def _has(self, addr: Hashable):
 		try:
 			idx = self._parse_index(addr, strict=False)
 		except IndexError:
@@ -878,7 +878,7 @@ class AutoTreeDenseNode(DenseNode, AutoTreeNode):
 				return self._children[idx] is not self._empty_value
 		return False
 
-	def __setitem__(self, addr: Hashable, node: LocalNode):
+	def _set(self, addr: Hashable, node: LocalNode):
 		idx = self._parse_index(addr, strict=False)
 		if idx == len(self._children):
 			self._children.append(node)
