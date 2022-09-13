@@ -10,7 +10,7 @@ from .filesystem import create_dir, crawl, spawn_path_options, load_yaml, save_y
 from .timing import get_now, recover_date
 from .patterns import Singleton, InitWall
 from .containers import deep_get, Simple_Child, Proper_Child, AttrDict, AttrOrdDict, Value, LoadedValue, Named
-from .registries import Registry, Entry_Registry, Named_Registry, Class_Registry
+from .registries import Registry, Entry_Registry, Named_Registry, Class_Registry, Path_Registry
 from .logic import sort_by, resolve_order, toposort
 from .hashing import Hashable, md5
 from .utils import sign, split_dict

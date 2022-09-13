@@ -131,7 +131,7 @@ class Double_Registry(Registry):
 
 class Entry_Double_Registry(Double_Registry, Entry_Registry):
 	
-	def __init_subclass__(cls, primary_component='name', sister_component='cls', components=[], required=[]):
+	def __init_subclass__(cls, primary_component='name', sister_component='value', components=[], required=[]):
 		super().__init_subclass__(key_name=primary_component, components=[sister_component, *components],
 		                          required=[sister_component, *required])
 		cls._sister_key_name = sister_component
@@ -213,6 +213,11 @@ class Entry_Double_Registry(Double_Registry, Entry_Registry):
 			self._register(sister_value, **self.params)
 			return sister_value
 
+
+class Path_Registry(Entry_Double_Registry):
+	def __init_subclass__(cls, sister_component='path', components=[], required=[]):
+		super().__init_subclass__(primary_component='name', sister_component=sister_component,
+		                          components=components, required=required)
 
 
 class Class_Registry(Entry_Double_Registry):
