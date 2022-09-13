@@ -7,6 +7,59 @@ import multiprocessing as mp
 import itertools
 import traceback
 
+
+class WorkerPool:
+	@staticmethod
+	def worker_loop(fn, in_q, out_q):
+		while True:
+			i, args = in_q.get(block=True)
+			if args is None:
+				break
+			args, kwargs = args
+			out_q.put((i, fn(*args, **kwargs)))
+		out_q.put((None, None))
+	
+	def __init__(self, fn, n_workers=1):
+		self.fn = fn
+		self.n_workers = n_workers
+		self.in_q = mp.Queue()
+		self.out_q = mp.Queue()
+		self.workers = [mp.Process(target=self.worker_loop, args=(fn, self.in_q, self.out_q))
+		                for _ in range(n_workers)]
+		for w in self.workers:
+			w.start()
+	
+	def __call__(self, *args, **kwargs):
+		self.in_q.put((None, (args, kwargs)))
+	
+	def __del__(self):
+		for _ in self.workers:
+			self.in_q.put((None, None))
+		for w in self.workers:
+			w.join()
+	
+	def multi_call(self, args_list, wait=True):
+		N = 0
+		for i, args in enumerate(args_list):
+			self.in_q.put((i, args))
+			N += 1
+		if not wait:
+			return N
+		out_list = [None] * N
+		for _ in range(N):
+			i, out = self.get()
+			out_list[i] = out
+		return out_list
+	
+	def get(self, wait=True):
+		return self.out_q.get(block=wait)
+	
+	def get_forever(self):
+		while True:
+			yield self.get()
+
+
+
 class ExceptionWrapper(object):
 	r"""Wraps an exception plus traceback to communicate across threads"""
 	def __init__(self, exc_info):

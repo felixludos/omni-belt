@@ -15,6 +15,7 @@ from .logic import sort_by, resolve_order, toposort
 from .hashing import Hashable, md5
 from .utils import sign, split_dict
 from .ordered_set import OrderedSet
+from .farming import WorkerPool
 # from .exporting import export, load_export, Exportable
 from .exporting import export, load_export, Exporter
 from .tricks import self_aware, clsdec, innerchild, method_wrapper, ClassDescriptable, classdescriptor, \
