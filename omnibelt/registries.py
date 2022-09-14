@@ -214,13 +214,16 @@ class Entry_Double_Registry(Double_Registry, Entry_Registry):
 			return sister_value
 
 
-class Path_Registry(Entry_Double_Registry):
+class Path_Registry(Entry_Double_Registry, sister_component='path'):
 	def __init_subclass__(cls, sister_component='path', components=[], required=[]):
 		super().__init_subclass__(primary_component='name', sister_component=sister_component,
 		                          components=components, required=required)
 
+	def get_path(self, x):
+		return getattr(self.find(x), self._sister_key_name)
 
-class Class_Registry(Entry_Double_Registry):
+
+class Class_Registry(Entry_Double_Registry, sister_component='cls'):
 
 	def __init_subclass__(cls, sister_component='cls', components=[], required=[]):
 		super().__init_subclass__(primary_component='name', sister_component=sister_component,
