@@ -223,6 +223,15 @@ class Path_Registry(Entry_Double_Registry, sister_component='path'):
 		return getattr(self.find(x), self._sister_key_name)
 
 
+class Function_Registry(Entry_Double_Registry, sister_component='fn'):
+	def __init_subclass__(cls, sister_component='fn', components=[], required=[]):
+		super().__init_subclass__(primary_component='name', sister_component=sister_component,
+		                          components=components, required=required)
+
+	def get_function(self, x):
+		return getattr(self.find(x), self._sister_key_name)
+
+
 class Class_Registry(Entry_Double_Registry, sister_component='cls'):
 
 	def __init_subclass__(cls, sister_component='cls', components=[], required=[]):

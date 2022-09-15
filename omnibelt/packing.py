@@ -14,6 +14,7 @@ from .logging import get_printer
 prt = get_printer(__file__)
 
 primitive = (str, int, float, bool, type(None)) # all json readable and no sub elements
+
 # py_types = (bytes, complex, range, tuple)
 # py_containers = (dict, list, set)
 
