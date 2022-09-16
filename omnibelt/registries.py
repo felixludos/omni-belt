@@ -1,4 +1,4 @@
-
+from pathlib import Path
 from collections import OrderedDict, namedtuple
 
 from .typing import unspecified_argument
@@ -96,6 +96,8 @@ class Double_Registry(Registry):
 		return x in self or x in self.backward()
 
 
+	class NotFoundError(KeyError): pass
+
 	def find(self, x, default=unspecified_argument):
 		if x in self:
 			return self[x]
@@ -103,7 +105,7 @@ class Double_Registry(Registry):
 			return self.backward()[x]
 		if default is not unspecified_argument:
 			return default
-		raise KeyError(x)
+		raise self.NotFoundError(x)
 
 
 	def backward(self):
@@ -150,6 +152,10 @@ class Entry_Double_Registry(Double_Registry, Entry_Registry):
 		return getattr(value, cls._key_name)
 
 
+	def get_value(self, key):
+		return getattr(self.find(key), self._sister_key_name)
+
+
 	def update(self, other, sync=True):
 		if sync:
 			self._sister_registry_object.update({self._get_sister_entry_key(k, v): v
@@ -169,21 +175,19 @@ class Entry_Double_Registry(Double_Registry, Entry_Registry):
 		return super().__delitem__(key, sync=False)
 
 
-	@classmethod
-	def _get_decorator_class(cls):
-		return cls.DecoratorBase
-
-
-	def get_decorator(self, name=None):
+	def get_decorator(self, name=None, defaults=None):
+		if defaults is None:
+			defaults = {}
 		return type(f'{self.__class__.__name__}_Decorator' if name is None else name,
-		            (self._get_decorator_class(),), {'_registry': self})
+		            (self.DecoratorBase,), {'_registry': self, '_defaults': defaults})
 
 
 	class DecoratorBase:
 		_registry = None
+		_defaults = None
 		def __init__(self, *args, **kwargs):
 
-			registry = self._get_registry()
+			registry = self._registry
 
 			arg_keys = list(registry.entry_cls._fields)
 			del arg_keys[1]
@@ -196,16 +200,18 @@ class Entry_Double_Registry(Double_Registry, Entry_Registry):
 			self.params = {**args, **kwargs}
 
 
-		@classmethod
-		def _get_registry(cls):
-			return cls._registry
+		# @classmethod
+		# def _get_registry(cls):
+		# 	return cls._registry
 
 
 		def _register(self, val, **params):
-			registry = self._get_registry()
+			registry = self._registry
 			key = registry._sister_key_name
 			if key not in params:
 				params[key] = val
+			full = self._defaults.copy()
+			full.update(params)
 			return registry.new(**params)
 
 
@@ -219,8 +225,13 @@ class Path_Registry(Entry_Double_Registry, sister_component='path'):
 		super().__init_subclass__(primary_component='name', sister_component=sister_component,
 		                          components=components, required=required)
 
-	def get_path(self, x):
-		return getattr(self.find(x), self._sister_key_name)
+	def new(self, name, path, *args, **kwargs):
+		if isinstance(path, str):
+			path = Path(path)
+		return super().new(name, path, *args, **kwargs)
+
+	def get_path(self, key):
+		return self.get_value(key)
 
 
 class Function_Registry(Entry_Double_Registry, sister_component='fn'):
@@ -228,8 +239,8 @@ class Function_Registry(Entry_Double_Registry, sister_component='fn'):
 		super().__init_subclass__(primary_component='name', sister_component=sister_component,
 		                          components=components, required=required)
 
-	def get_function(self, x):
-		return getattr(self.find(x), self._sister_key_name)
+	def get_function(self, key):
+		return self.get_value(key)
 
 
 class Class_Registry(Entry_Double_Registry, sister_component='cls'):
@@ -238,8 +249,8 @@ class Class_Registry(Entry_Double_Registry, sister_component='cls'):
 		super().__init_subclass__(primary_component='name', sister_component=sister_component,
 		                          components=components, required=required)
 
-	def get_class(self, x):
-		return getattr(self.find(x), self._sister_key_name)
+	def get_class(self, key):
+		return self.get_value(key)
 
 	class DecoratorBase(Entry_Double_Registry.DecoratorBase):
 		def _register(self, val, name=None, **params):
