@@ -285,7 +285,7 @@ from collections import OrderedDict
 
 
 class auto_methods(capturable_method):
-	_auto_methods = None
+	# _auto_methods = None
 	def __init_subclass__(cls, auto_methods: Optional[Union[str, Sequence[str]]] = (),
 	                      inheritable_auto_methods: Optional[Union[str, Sequence[str]]] = (), **kwargs):
 		super().__init_subclass__(**kwargs)
