@@ -461,7 +461,7 @@ def collect_init_kwargs(typ: type, default: Any = Parameter.empty, *, end_type: 
 
 	
 def extract_function_signature(fn: Union[Callable, Type],
-                               args: Optional[Tuple[...]] = None, kwargs: Optional[Dict[str, Any]] = None, *,
+                               args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None, *,
                                default_fn: Callable[[str, Any], Any] = None, allow_positional: bool = True) \
 		-> Union[Tuple[List[Any], Dict[str, Any]], Dict[str, Any]]:
 	if args is None:
