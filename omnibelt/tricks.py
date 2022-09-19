@@ -67,7 +67,7 @@ class Scope(metaclass=MROMeta):
 
 
 
-class method_decorator:
+class method_decorator: # always replaces the function
 	def __init__(self, fn: Callable = None, *, enforce_setup: bool = True):
 		self.fn = fn
 		self._enforce_setup = enforce_setup
@@ -260,7 +260,7 @@ class captured(captured_super, captured_method):
 
 
 class method_wrapper(method_decorator):
-	def package(self, obj: Any, cls: type = None) -> Callable:
+	def package(self, obj: Any, cls: Type = None) -> Callable:
 		self.obj, self.cls = obj, cls
 		return self.apply_fn
 
@@ -281,29 +281,84 @@ class method_wrapper(method_decorator):
 		out = self.process_out(out)
 		return out
 
+from collections import OrderedDict
 
 
-class auto_init(capturable_method):
-	def __init_subclass__(cls, **kwargs):
+class auto_methods(capturable_method):
+	_auto_methods = None
+	def __init_subclass__(cls, auto_methods: Optional[Union[str, Sequence[str]]] = (),
+	                      inheritable_auto_methods: Optional[Union[str, Sequence[str]]] = (), **kwargs):
 		super().__init_subclass__(**kwargs)
-		if '__init__' in cls.__dict__:
-			cls.__init__ = captured_method(cls.__init__).setup(cls)
+
+		existing = [method for method, inherit in getattr(cls, '_auto_methods', {}).items() if inherit]
+		if isinstance(inheritable_auto_methods, str):
+			inheritable_auto_methods = (inheritable_auto_methods,)
+		if isinstance(auto_methods, str):
+			auto_methods = (auto_methods,)
+		cls._auto_methods = OrderedDict((method, True) for method in existing + list(inheritable_auto_methods))
+		cls._auto_methods.update((method, False) for method in auto_methods)
+
+		for method in cls._auto_methods:
+			if method in cls.__dict__:
+				setattr(cls, method, captured_method(getattr(cls, method)).setup(cls))
 
 
-	def _fill_in_missing_init_arg(self, key: str) -> Any:
-		raise KeyError(key)
+	class _auto_method_arg_fixer:
+		def __init__(self, method: Callable, src: Type, obj: 'auto_methods', **kwargs):
+			super().__init__(**kwargs)
+			self.method = method
+			self.src = src
+			self.obj = obj
+
+		def __call__(self, key: str, default: Optional[Any] = inspect.Parameter.empty) -> Any:
+			raise KeyError(key)
 
 
-	def _auto_init(self, init_fn: Callable, args: Tuple, kwargs: Dict[str, Any]) -> None:
-		fixed_args, fixed_kwargs = extract_function_signature(init_fn, (self, *args), kwargs,
-															  default_fn=self._fill_in_missing_init_arg)
-		return init_fn(*fixed_args, **fixed_kwargs)
+	def _auto_fix_args(self, src: Type, method: Callable, args: Tuple, kwargs: Dict[str, Any]) -> None:
+		fixed_args, fixed_kwargs = extract_function_signature(method, (self, *args), kwargs,
+											default_fn=self._auto_method_arg_fixer(method, src, self))
+		return method(*fixed_args, **fixed_kwargs)
 
 
-	def captured_method_call(self, src: type, fn: Callable, args: Tuple, kwargs: Dict[str, Any]) -> Any:
-		if fn.__name__ == '__init__':
-			return self._auto_init(fn, args, kwargs)
+	def captured_method_call(self, src: Type['auto_methods'], fn: Callable,
+	                         args: Tuple, kwargs: Dict[str, Any]) -> Any:
+		if getattr(src, '_auto_methods', None) is not None and fn.__name__ in src._auto_methods:
+			return self._auto_fix_args(src, fn, args, kwargs)
 		return super().captured_method_call(src, fn, args, kwargs)
+
+
+
+class auto_init(auto_methods, inheritable_auto_methods='__init__'):
+	pass
+
+
+# class old_auto_init(capturable_method):
+# 	def __init_subclass__(cls, **kwargs):
+# 		super().__init_subclass__(**kwargs)
+# 		if '__init__' in cls.__dict__:
+# 			cls.__init__ = captured_method(cls.__init__).setup(cls)
+#
+#
+# 	class _init_arg_fixer:
+# 		def __init__(self, src: Type, obj: 'old_auto_init', **kwargs):
+# 			super().__init__(**kwargs)
+# 			self.src = src
+# 			self.obj = obj
+#
+# 		def __call__(self, key: str, default: Optional[Any] = inspect.Parameter.empty) -> Any:
+# 			raise KeyError(key)
+#
+#
+# 	def _auto_init(self, src: Type, init_fn: Callable, args: Tuple, kwargs: Dict[str, Any]) -> None:
+# 		fixed_args, fixed_kwargs = extract_function_signature(init_fn, (self, *args), kwargs,
+# 															  default_fn=self._init_arg_fixer(src, self))
+# 		return init_fn(*fixed_args, **fixed_kwargs)
+#
+#
+# 	def captured_method_call(self, src: Type, fn: Callable, args: Tuple, kwargs: Dict[str, Any]) -> Any:
+# 		if fn.__name__ == '__init__':
+# 			return self._auto_init(src, fn, args, kwargs)
+# 		return super().captured_method_call(src, fn, args, kwargs)
 
 
 
