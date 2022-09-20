@@ -1,3 +1,4 @@
+from typing import NamedTuple, Dict, Any, Union, Optional, List, Tuple, Callable, Type, Sequence, Iterable, Iterator
 from pathlib import Path
 from collections import OrderedDict, namedtuple
 
@@ -45,6 +46,7 @@ class Entry_Registry(Registry):
 	'''
 	Automatically wraps data into an "entry" object (namedtuple) which is stored in the registry
 	'''
+	entry_cls: namedtuple = None
 	def __init_subclass__(cls, key_name='name', components=[], required=[]):
 		super().__init_subclass__()
 		cls.entry_cls: namedtuple = namedtuple(f'{cls.__name__}_Entry', [key_name, *components])
@@ -175,7 +177,7 @@ class Entry_Double_Registry(Double_Registry, Entry_Registry):
 		return super().__delitem__(key, sync=False)
 
 
-	def get_decorator(self, name=None, defaults=None):
+	def get_decorator(self, name: Optional[str] = None, defaults: Dict[str, Any] = None):
 		if defaults is None:
 			defaults = {}
 		return type(f'{self.__class__.__name__}_Decorator' if name is None else name,

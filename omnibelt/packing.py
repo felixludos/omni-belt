@@ -259,15 +259,15 @@ class Packable(object):
 
 
 
-PRIMITIVE = Union[primitive]
+Primitive = Union[primitive]
 '''Valid primitives'''
 #
 # SERIALIZABLE = Union[Packable, PRIMITIVE, Dict['SERIALIZABLE', 'SERIALIZABLE'],
 #                      List['SERIALIZABLE'], Set['SERIALIZABLE'], Tuple['SERIALIZABLE']]
 # '''Types that can be serialized using `pack`'''
 #
-# JSONABLE = Union[Dict[str,'JSONABLE'], List['JSONABLE'], PRIMITIVE]
-# '''Any object that is valid in json (eg. using `json.dumps`)'''
+JSONABLE = Union[Dict[str,'JSONABLE'], List['JSONABLE'], Primitive]
+'''Any object that is valid in json (eg. using `json.dumps`)'''
 #
 # PACKED = Union[PRIMITIVE, List['PACKED'], Dict['PACKED', 'PACKED']]
 # '''Any information that is valid json and can be unpacked to recover the state of `Packable` subclasses.'''
@@ -275,7 +275,7 @@ PRIMITIVE = Union[primitive]
 
 
 SERIALIZABLE = NewType('SERIALIZABLE', object)
-JSONABLE = NewType('JSONABLE', object)
+# JSONABLE = NewType('JSONABLE', object)
 PACKED = NewType('PACKED', object)
 
 
