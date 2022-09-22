@@ -49,7 +49,9 @@ class Entry_Registry(Registry):
 	entry_cls: namedtuple = None
 	def __init_subclass__(cls, key_name='name', components=[], required=[]):
 		super().__init_subclass__()
-		cls.entry_cls: namedtuple = namedtuple(f'{cls.__name__}_Entry', [key_name, *components])
+		entry_keys = [key_name, *components]
+		# cls._entry_keys = entry_keys
+		cls.entry_cls: namedtuple = namedtuple(f'{cls.__name__}_Entry', entry_keys)
 		cls._required_keys = [key_name, *required]
 		cls._key_name = key_name
 
@@ -192,7 +194,7 @@ class Entry_Double_Registry(Double_Registry, Entry_Registry):
 			registry = self._registry
 
 			arg_keys = list(registry.entry_cls._fields)
-			del arg_keys[1]
+			# del arg_keys[1]
 			args = dict(zip(arg_keys, args))
 
 			overlap = ', '.join({registry._sister_key_name, *args.keys()}.intersection(kwargs))
