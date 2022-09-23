@@ -1,4 +1,5 @@
-from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, Iterator
+from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, \
+	Iterable, Iterator, TypeVar
 import types
 import inspect
 from .typing import unspecified_argument
@@ -337,6 +338,75 @@ class auto_methods(capturable_method):
 
 class auto_init(auto_methods, inheritable_auto_methods='__init__'):
 	pass
+
+
+T = TypeVar('T')
+
+class dynamic_capture:
+	def __init__(self, srcs: Sequence[Type[T]],
+	             fn: Callable[[Type, Callable, T, Tuple, Dict[str, Any]], Any],
+	             *method_names: str):
+
+		self.srcs = srcs
+		self.fn = fn
+		self.method_names = method_names
+
+		self.original_methods = None
+
+		# if not isinstance(owner, type):
+		# 	owner = type(owner)
+
+
+	class capture_context:
+		def __init__(self, owner, method_fn, fn):
+			self.owner = owner # current class
+			self.instance = None # instance of owner
+			self.method_fn = method_fn # original method of src that was now replaced with self
+			self.fn = fn
+
+		def __get__(self, instance, owner):
+			self.instance = instance
+			return self
+			# return self.fn(instance, self.src, self.original)
+
+		def __call__(self, *args, **kwargs):
+			# assert self.instance is not None, 'cannot call a captured method without an instance'
+			return self.fn(self.owner, self.method_fn, self.instance, args, kwargs)
+
+
+	def activate(self):
+		original_methods = {}
+		for cls in self.srcs:
+			if cls is not object:
+				for name in self.method_names:
+					if name in cls.__dict__:
+						original_methods[cls, name] = getattr(cls, name)
+						setattr(cls, name, self.capture_context(cls, original_methods[cls, name], self.fn))
+		self.original_methods = original_methods
+		return self
+
+	class NotActivatedError(ValueError): pass
+
+	def deactivate(self):
+		if self.original_methods is None:
+			raise self.NotActivatedError('cannot deactivate a dynamic capture that has not been activated')
+		for (cls, name), original in self.original_methods.items():
+			setattr(cls, name, original)
+
+	def __enter__(self):
+		return self.activate()
+
+	def __exit__(self, exc_type, exc_val, exc_tb):
+		self.deactivate()
+		# return exc_type, exc_val, exc_tb
+
+
+class simple_dynamic_capture(dynamic_capture):
+	def __init__(self, target: Type[T], fn: Callable[[Type, Callable, T, Tuple, Dict[str, Any]], Any],
+	             *method_names: str, full_bases: Optional[bool] = False, full_mro: Optional[bool] = False):
+		super().__init__(target.mro() if full_mro else target.__bases__ if full_bases else (target,),
+		                 fn, *method_names)
+
 
 
 # class old_auto_init(capturable_method):

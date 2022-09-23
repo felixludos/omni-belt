@@ -661,6 +661,7 @@ class SparseNode(LocalNode):
 
 class DenseNode(LocalNode):
 	ChildrenStructure = list
+	_python_structure = list
 
 	def _parse_index(self, addr: Hashable, strict: bool = False) -> int:
 		if isinstance(addr, str):
@@ -706,7 +707,7 @@ class DenseNode(LocalNode):
 			yield str(i), x
 
 	def to_python(self):
-		return [value.payload for value in self._children]
+		return self._python_structure(value.payload for value in self._children)
 
 	def prepend(self, val: Any):
 		self._children.insert(0, self.from_raw(val))

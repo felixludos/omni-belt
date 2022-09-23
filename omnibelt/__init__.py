@@ -19,7 +19,7 @@ from .farming import WorkerPool
 # from .exporting import export, load_export, Exportable
 from .exporting import export, load_export, Exporter
 from .tricks import self_aware, clsdec, innerchild, method_wrapper, ClassDescriptable, classdescriptor, \
-	extract_function_signature, capturable_super, captured_super, auto_init
+	extract_function_signature, capturable_super, captured_super, auto_init, dynamic_capture
 
 from .packing import Packable, primitive, Primitive, SERIALIZABLE, JSONABLE, pack, unpack
 from .packing import save_pack, load_pack, json_pack, json_unpack
