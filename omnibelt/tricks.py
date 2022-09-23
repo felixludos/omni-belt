@@ -586,6 +586,9 @@ def extract_function_signature(fn: Union[Callable, Type],
 						raise KeyError
 					val = default_fn(n, p.default)
 				except KeyError:
+					# if p.default is p.empty:
+					# 	raise TypeError(f'Argument {n} is missing')
+					# print(n, p.default)
 					pass
 				else:
 					fixed_kwargs[n] = val

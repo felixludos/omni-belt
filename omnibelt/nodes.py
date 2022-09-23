@@ -654,7 +654,7 @@ class SparseNode(LocalNode):
 		return self._children.items()
 
 	def to_python(self):
-		return OrderedDict([(key, value.to_python()) for key, value in self._children.items()])
+		return OrderedDict([(key, value.payload) for key, value in self._children.items()])
 
 
 
@@ -705,7 +705,7 @@ class DenseNode(LocalNode):
 			yield str(i), x
 
 	def to_python(self):
-		return [value.to_python() for value in self._children]
+		return [value.payload for value in self._children]
 
 	def prepend(self, val: Any):
 		self._children.insert(0, self.from_raw(val))
