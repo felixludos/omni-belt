@@ -631,6 +631,7 @@ class LocalNode(PayloadNode):
 
 class SparseNode(LocalNode):
 	ChildrenStructure = OrderedDict
+	_python_structure = OrderedDict
 
 	def _get(self, addr: Hashable) -> LocalNode:
 		try:
@@ -654,7 +655,7 @@ class SparseNode(LocalNode):
 		return self._children.items()
 
 	def to_python(self):
-		return OrderedDict([(key, value.payload) for key, value in self._children.items()])
+		return self._python_structure([(key, value.payload) for key, value in self._children.items()])
 
 
 
@@ -789,7 +790,7 @@ class AddressNode(LocalNode):
 	_address_delimiter = '.'
 	
 	
-	class ConnectorError(KeyError):
+	class ConnectorError(LocalNode.MissingKey):
 		def __init__(self, node, current, rest):
 			super().__init__(current)
 			self.node = node
@@ -818,7 +819,6 @@ class AddressNode(LocalNode):
 			for subkey, subvalue in value.flatten(skip_empty=skip_empty):
 				yield f'{key}{self._address_delimiter}{subkey}', subvalue
 
-
 	def get(self, addr: str, default: Any = unspecified_argument) -> 'LocalNode':
 		node, key = self._evaluate_address(addr)
 		return super(AddressNode, node).get(key, default)
@@ -830,7 +830,10 @@ class AddressNode(LocalNode):
 
 
 	def has(self, addr: str) -> bool:
-		node, key = self._evaluate_address(addr)
+		try:
+			node, key = self._evaluate_address(addr)
+		except self.ConnectorError:
+			return False
 		return super(AddressNode, node).has(key)
 
 

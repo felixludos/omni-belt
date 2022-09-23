@@ -313,10 +313,17 @@ class auto_methods(capturable_method):
 		def __call__(self, key: str, default: Optional[Any] = inspect.Parameter.empty) -> Any:
 			raise KeyError(key)
 
+	@staticmethod
+	def _fix_missing_args(missing: List[inspect.Parameter], src: Type, method: Callable,
+	                      args: Tuple, kwargs: Dict[str, Any]):
+		return args, kwargs
 
 	def _auto_fix_args(self, src: Type, method: Callable, args: Tuple, kwargs: Dict[str, Any]) -> None:
-		fixed_args, fixed_kwargs = extract_function_signature(method, (self, *args), kwargs,
-											default_fn=self._auto_method_arg_fixer(method, src, self))
+		fixed_args, fixed_kwargs, missing = extract_function_signature(method, (self, *args), kwargs,
+												default_fn=self._auto_method_arg_fixer(method, src, self),
+											                  include_missing=True)
+		if len(missing):
+			fixed_args, fixed_kwargs = self._fix_missing_args(missing, src, method, fixed_args, fixed_kwargs)
 		return method(*fixed_args, **fixed_kwargs)
 
 
@@ -517,8 +524,11 @@ def collect_init_kwargs(typ: type, default: Any = Parameter.empty, *, end_type: 
 	
 def extract_function_signature(fn: Union[Callable, Type],
                                args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None, *,
-                               default_fn: Callable[[str, Any], Any] = None, allow_positional: bool = True) \
-		-> Union[Tuple[List[Any], Dict[str, Any]], Dict[str, Any]]:
+                               default_fn: Callable[[str, Any], Any] = None, include_missing: bool = False,
+                               allow_positional: bool = True) \
+		-> Union[Tuple[List[Any], Dict[str, Any], List[inspect.Parameter]],
+		         Tuple[List[Any], Dict[str, Any]],
+		         Dict[str, Any]]:
 	if args is None:
 		args = ()
 	if kwargs is None:
@@ -532,7 +542,9 @@ def extract_function_signature(fn: Union[Callable, Type],
 	arg_idx = 0
 	fixed_args = []
 	fixed_kwargs = {}
-	
+
+	missing = []
+
 	for n, p in params.items():
 		if p.kind == p.POSITIONAL_ONLY:
 			if not allow_positional:
@@ -546,7 +558,8 @@ def extract_function_signature(fn: Union[Callable, Type],
 						raise KeyError
 					val = default_fn(n, p.default)
 				except KeyError:
-					pass
+					if p.default is p.empty:
+						missing.append(p)
 				else:
 					fixed_args.append(val)
 		elif p.kind == p.VAR_POSITIONAL:
@@ -586,12 +599,16 @@ def extract_function_signature(fn: Union[Callable, Type],
 						raise KeyError
 					val = default_fn(n, p.default)
 				except KeyError:
+					if p.default is p.empty:
+						missing.append(p)
 					# if p.default is p.empty:
 					# 	raise TypeError(f'Argument {n} is missing')
 					# print(n, p.default)
 					pass
 				else:
 					fixed_kwargs[n] = val
+	if include_missing:
+		return fixed_args, fixed_kwargs, missing
 	if allow_positional:
 		return fixed_args, fixed_kwargs
 	assert len(fixed_args) == 0, f'fixed_args: {fixed_args}'
