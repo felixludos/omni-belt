@@ -800,7 +800,7 @@ class AddressNode(LocalNode):
 	
 	
 	def _evaluate_address(self, addr: str) -> Tuple['AddressNode', str]:
-		current, *rest = addr.split(self._address_delimiter)
+		current, *rest = str(addr).split(self._address_delimiter)
 		if len(rest):
 			try:
 				node = self[current] if len(current) else self.parent
@@ -858,9 +858,9 @@ class AutoAddressNode(AddressNode):
 			return e.node._evaluate_address(self._address_delimiter.join((e.current, *e.rest)),
 			                                auto_create=auto_create)
 
-	def set(self, addr: str, value: Any):
+	def set(self, addr: str, value: Any, **kwargs):
 		node, key = self._evaluate_address(addr, auto_create=True)
-		return super(AddressNode, node).set(key, value)
+		return super(AddressNode, node).set(key, value, **kwargs)
 
 
 
