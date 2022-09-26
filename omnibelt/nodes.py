@@ -480,18 +480,18 @@ class LocalNode(PayloadNode):
 	DefaultNode = None
 	ChildrenStructure = None
 
-	class _empty_value: pass
-	_empty_value.payload = _empty_value
+	class empty_value: pass
+	empty_value.payload = empty_value
 
 	class MissingKey(KeyError): pass
 
 	@classmethod
 	def from_raw(cls, raw: Any, *, parent: Optional['LocalNode'] = unspecified_argument, **kwargs) \
-			-> Union['LocalNode', _empty_value]:
+			-> Union['LocalNode', empty_value]:
 		if isinstance(raw, LocalNode):
 			raw.parent = parent
 			return raw
-		if isinstance(raw, cls._empty_value):
+		if raw is cls.empty_value or isinstance(raw, cls.empty_value):
 			return raw
 		return cls(payload=raw, parent=parent, **kwargs)
 
@@ -592,7 +592,7 @@ class LocalNode(PayloadNode):
 
 	def children(self, keys=True, skip_empty=False):
 		for addr, node in self._iterate_children():
-			if skip_empty and node is self._empty_value:
+			if (skip_empty or not keys) and node is self.empty_value:
 				continue
 			if keys:
 				yield addr, node
@@ -665,9 +665,12 @@ class DenseNode(LocalNode):
 
 	def _parse_index(self, addr: Hashable, strict: bool = False) -> int:
 		if isinstance(addr, str):
+			# if addr == '_':
+			# 	addr = len(self)
+			# else:
 			addr = int(addr)
 		if not isinstance(addr, int):
-			raise TypeError(addr)
+			raise ValueError(addr)
 		if strict and not (-len(self._children) <= addr < len(self._children)):
 			raise IndexError(addr)
 		return addr
@@ -675,7 +678,7 @@ class DenseNode(LocalNode):
 	def _get(self, addr: Hashable) -> LocalNode:
 		try:
 			return self._children[self._parse_index(addr, strict=True)]
-		except (IndexError, TypeError):
+		except (IndexError, ValueError):
 			raise self.MissingKey(addr)
 
 	def _set(self, addr: Hashable, node: LocalNode):
@@ -695,7 +698,7 @@ class DenseNode(LocalNode):
 			idx = self._parse_index(addr, strict=False)
 		except IndexError:
 			return False
-		except TypeError:
+		except ValueError:
 			return False
 		return -len(self._children) <= idx < len(self._children)
 
@@ -879,7 +882,7 @@ class AutoTreeDenseNode(DenseNode, AutoTreeNode):
 			pass
 		else:
 			if -len(self._children) <= idx < len(self._children):
-				return self._children[idx] is not self._empty_value
+				return self._children[idx] is not self.empty_value
 		return False
 
 	def _set(self, addr: Hashable, node: LocalNode):
@@ -889,7 +892,7 @@ class AutoTreeDenseNode(DenseNode, AutoTreeNode):
 		elif -len(self._children) <= idx < len(self._children):
 			self._children[idx] = node
 		elif idx > 0:
-			self._children.extend([self._empty_value] * (idx - len(self._children)))
+			self._children.extend([self.empty_value] * (idx - len(self._children)))
 			self._children.append(node)
 		else:
 			raise IndexError(idx)
