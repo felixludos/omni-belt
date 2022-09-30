@@ -486,10 +486,12 @@ class LocalNode(PayloadNode):
 	class MissingKey(KeyError): pass
 
 	@classmethod
-	def from_raw(cls, raw: Any, *, parent: Optional['LocalNode'] = unspecified_argument, **kwargs) \
+	def from_raw(cls, raw: Any, *, parent: Optional['LocalNode'] = unspecified_argument,
+	             parent_key: Optional[str] = None, **kwargs) \
 			-> Union['LocalNode', empty_value]:
 		if isinstance(raw, LocalNode):
 			raw.parent = parent
+			raw._parent_key = parent_key
 			return raw
 		if raw is cls.empty_value or isinstance(raw, cls.empty_value):
 			return raw
@@ -497,13 +499,15 @@ class LocalNode(PayloadNode):
 
 
 	def __init__(self, payload=unspecified_argument, *, parent: Optional['LocalNode'] = unspecified_argument,
-	             children: Optional[ChildrenStructure] = unspecified_argument, **kwargs):
+	             children: Optional[ChildrenStructure] = unspecified_argument,
+	             parent_key: Optional[str] = None, **kwargs):
 		super().__init__(**kwargs)
 		self._payload = payload
 		self._parent = parent
 		if children is unspecified_argument:
 			children = self.ChildrenStructure()
 		self._children = children
+		self._parent_key = parent_key
 
 
 	@property
@@ -516,6 +520,9 @@ class LocalNode(PayloadNode):
 	@property
 	def has_parent(self):
 		return self._parent is not unspecified_argument
+	@property
+	def parent_key(self):
+		return self._parent_key
 
 	
 	@property
@@ -615,7 +622,7 @@ class LocalNode(PayloadNode):
 
 
 	def set(self, addr: Hashable, value: Any, **kwargs) -> 'LocalNode':
-		node = self.from_raw(value, parent=self, **kwargs)
+		node = self.from_raw(value, parent=self, parent_key=addr, **kwargs)
 		self._set(addr, node)
 		return node
 
@@ -737,16 +744,18 @@ class TreeNode(LocalNode):
 
 	
 	@classmethod
-	def from_raw(cls, raw: Any, *, parent: Optional['LocalNode'] = unspecified_argument, **kwargs) -> 'LocalNode':
+	def from_raw(cls, raw: Any, *, parent: Optional['LocalNode'] = unspecified_argument,
+	             parent_key: Optional[str] = None, **kwargs) -> 'LocalNode':
 		if isinstance(raw, LocalNode):
 			raw.parent = parent
+			raw._parent_key = parent_key
 			return raw
 		if isinstance(raw, dict):
-			node = cls.SparseNode(parent=parent, **kwargs)
+			node = cls.SparseNode(parent=parent, parent_key=parent_key, **kwargs)
 			for key, value in raw.items():
 				node.set(key, cls.from_raw(value, parent=node, **kwargs), **kwargs)
 		elif isinstance(raw, (tuple, list)):
-			node = cls.DenseNode(parent=parent, **kwargs)
+			node = cls.DenseNode(parent=parent, parent_key=parent_key, **kwargs)
 			for idx, value in enumerate(raw):
 				idx = str(idx)
 				node.set(idx, cls.from_raw(value, parent=node, **kwargs), **kwargs)
