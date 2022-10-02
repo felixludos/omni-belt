@@ -75,10 +75,10 @@ class StructureNode(OmniNode):
 		return self._structure
 	
 	
-	Structure = None
+	_Structure = None
 	def _create_structure(self, structure: OmniStructure = None, **kwargs) -> OmniStructure:
 		if structure is None:
-			structure = self.Structure(**kwargs)
+			structure = self._Structure(**kwargs)
 		return structure.register(self)
 
 
@@ -176,15 +176,15 @@ class BaseStructure(OmniStructure):
 
 
 class NodeEdgeStructure(IntrinsicStructure, OrderedDict):
-	class NodeEdges(BaseStructure):
+	class _NodeEdges(BaseStructure):
 		pass
 
 
-	def register(self, node: IdentNode, **kwargs) -> NodeEdges:
+	def register(self, node: IdentNode, **kwargs) -> _NodeEdges:
 		ID = node.identifier
 		if ID in self:
 			return self[ID]
-		edges = self.NodeEdges(node, self, **kwargs)
+		edges = self._NodeEdges(node, self, **kwargs)
 		self[ID] = edges
 		return edges
 
@@ -288,8 +288,8 @@ class MultiParentNode(AbstractMultiParentNode):  # single parent, many children
 
 
 class GraphNode(StructureNode):
-	class Structure(NodeEdgeStructure):
-		class NodeEdges(NodeEdgeStructure.NodeEdges, SequenceStructure):
+	class _Structure(NodeEdgeStructure):
+		class _NodeEdges(NodeEdgeStructure._NodeEdges, SequenceStructure):
 			def register(self, node: StructureNode) -> 'NodeEdges':
 				node.structure.add(self.base)
 				return super().register(node)
@@ -314,8 +314,8 @@ class GlobalTreeNode(ParentNode, StructureNode):
 		return self.structure
 	
 	
-	class Structure(NodeEdgeStructure):
-		class NodeEdges(NodeEdgeStructure.NodeEdges):
+	class _Structure(NodeEdgeStructure):
+		class _NodeEdges(NodeEdgeStructure._NodeEdges):
 			def register(self, node: ParentNode) -> 'NodeEdges':
 				node._parent = self.base
 				return super().register(node)
@@ -333,8 +333,8 @@ class GlobalTreeNode(ParentNode, StructureNode):
 
 
 class TableTreeNode(StructureNode): # Table Tree Node (tree where children have an address)
-	class Structure(NodeEdgeStructure):
-		class NodeEdges(NodeEdgeStructure.NodeEdges, TableStructure):
+	class _Structure(NodeEdgeStructure):
+		class _NodeEdges(NodeEdgeStructure._NodeEdges, TableStructure):
 			def register(self, addr: Hashable, node: ParentNode) -> 'NodeEdges':
 				node._parent = self.base
 				return super().register(addr, node)
@@ -351,8 +351,8 @@ class TableTreeNode(StructureNode): # Table Tree Node (tree where children have 
 
 
 class DiGraphNode(MultiParentNode, StructureNode):
-	class Structure(NodeEdgeStructure):
-		class Parents(BaseStructure, SequenceStructure):
+	class _Structure(NodeEdgeStructure):
+		class _Parents(BaseStructure, SequenceStructure):
 			def register(self, node: 'DiGraphNode') -> 'NodeEdges':
 				node.children.add(self.base)
 				return super().register(node)
@@ -368,7 +368,7 @@ class DiGraphNode(MultiParentNode, StructureNode):
 				return super().deregister_base()
 		
 		
-		class Children(BaseStructure, SequenceStructure):
+		class _Children(BaseStructure, SequenceStructure):
 			def register(self, node: 'DiGraphNode') -> 'NodeEdges':
 				node.parents.add(self.base)
 				return super().register(node)
@@ -384,7 +384,7 @@ class DiGraphNode(MultiParentNode, StructureNode):
 				return super().deregister_base()
 		
 		
-		class NodeEdges(NodeEdgeStructure.NodeEdges):
+		class _NodeEdges(NodeEdgeStructure._NodeEdges):
 			def __init__(self, base: OmniNode, structure: OmniStructure,
 			             parents: 'Parents', children: 'Children'):
 				super().__init__(base, structure)
@@ -410,21 +410,21 @@ class DiGraphNode(MultiParentNode, StructureNode):
 		
 		
 		def register(self, node: IdentNode, parents=unspecified_argument, children=unspecified_argument,
-		             **kwargs) -> NodeEdges:
+		             **kwargs) -> _NodeEdges:
 			if parents is unspecified_argument:
-				parents = self.Parents(node, self)
+				parents = self._Parents(node, self)
 			if children is unspecified_argument:
-				children = self.Children(node, self)
+				children = self._Children(node, self)
 			return super().register(node, parents=parents, children=children, **kwargs)
 
 	
 	@property
-	def parents(self) -> 'Structure.Parents':
+	def parents(self) -> 'Structure._Parents':
 		return self.structure.parents
 
 	
 	@property
-	def children(self) -> 'Structure.Children':
+	def children(self) -> 'Structure._Children':
 		return self.structure.children
 
 
@@ -477,35 +477,35 @@ class StampedNode(OmniNode):
 
 
 class LocalNode(PayloadNode):
-	DefaultNode = None
-	ChildrenStructure = None
+	_DefaultNode = None
+	_ChildrenStructure = None
 
-	class empty_value: pass
-	empty_value.payload = empty_value
+	class _empty_value: pass
+	_empty_value.payload = _empty_value
 
-	class MissingKey(KeyError): pass
+	class _MissingKey(KeyError): pass
 
 	@classmethod
 	def from_raw(cls, raw: Any, *, parent: Optional['LocalNode'] = unspecified_argument,
 	             parent_key: Optional[str] = None, **kwargs) \
-			-> Union['LocalNode', empty_value]:
+			-> Union['LocalNode', _empty_value]:
 		if isinstance(raw, LocalNode):
 			raw.parent = parent
 			raw._parent_key = parent_key
 			return raw
-		if raw is cls.empty_value or isinstance(raw, cls.empty_value):
+		if raw is cls._empty_value or isinstance(raw, cls._empty_value):
 			return raw
 		return cls(payload=raw, parent=parent, **kwargs)
 
 
 	def __init__(self, payload=unspecified_argument, *, parent: Optional['LocalNode'] = unspecified_argument,
-	             children: Optional[ChildrenStructure] = unspecified_argument,
+	             children: Optional[_ChildrenStructure] = unspecified_argument,
 	             parent_key: Optional[str] = None, **kwargs):
 		super().__init__(**kwargs)
 		self._payload = payload
 		self._parent = parent
 		if children is unspecified_argument:
-			children = self.ChildrenStructure()
+			children = self._ChildrenStructure()
 		self._children = children
 		self._parent_key = parent_key
 
@@ -599,7 +599,7 @@ class LocalNode(PayloadNode):
 
 	def children(self, keys=True, skip_empty=False):
 		for addr, node in self._iterate_children():
-			if (skip_empty or not keys) and node is self.empty_value:
+			if (skip_empty or not keys) and node is self._empty_value:
 				continue
 			if keys:
 				yield addr, node
@@ -615,7 +615,7 @@ class LocalNode(PayloadNode):
 	def get(self, addr: Hashable, default: Any = unspecified_argument) -> 'LocalNode':
 		try:
 			return self._get(addr)
-		except self.MissingKey:
+		except self._MissingKey:
 			if default is unspecified_argument:
 				raise
 			return default
@@ -637,14 +637,14 @@ class LocalNode(PayloadNode):
 
 
 class SparseNode(LocalNode):
-	ChildrenStructure = OrderedDict
+	_ChildrenStructure = OrderedDict
 	_python_structure = OrderedDict
 
 	def _get(self, addr: Hashable) -> LocalNode:
 		try:
 			return self._children[addr]
 		except KeyError:
-			raise self.MissingKey(addr)
+			raise self._MissingKey(addr)
 
 	def _set(self, addr: Hashable, node: LocalNode):
 		self._children[addr] = node
@@ -667,7 +667,7 @@ class SparseNode(LocalNode):
 
 
 class DenseNode(LocalNode):
-	ChildrenStructure = list
+	_ChildrenStructure = list
 	_python_structure = list
 
 	def _parse_index(self, addr: Hashable, strict: bool = False) -> int:
@@ -686,7 +686,7 @@ class DenseNode(LocalNode):
 		try:
 			return self._children[self._parse_index(addr, strict=True)]
 		except (IndexError, ValueError):
-			raise self.MissingKey(addr)
+			raise self._MissingKey(addr)
 
 	def _set(self, addr: Hashable, node: LocalNode):
 		idx = self._parse_index(addr, strict=False)
@@ -734,9 +734,9 @@ class DenseNode(LocalNode):
 
 
 class TreeNode(LocalNode):
-	DefaultNode: Type['TreeNode'] = SparseNode
-	DenseNode: Type['TreeNode'] = None
-	SparseNode: Type['TreeNode'] = None
+	_DefaultNode: Type['TreeNode'] = SparseNode
+	_DenseNode: Type['TreeNode'] = None
+	_SparseNode: Type['TreeNode'] = None
 
 
 	# def __new__(cls, raw: Any = unspecified_argument, **kwargs):
@@ -751,16 +751,16 @@ class TreeNode(LocalNode):
 			raw._parent_key = parent_key
 			return raw
 		if isinstance(raw, dict):
-			node = cls.SparseNode(parent=parent, parent_key=parent_key, **kwargs)
+			node = cls._SparseNode(parent=parent, parent_key=parent_key, **kwargs)
 			for key, value in raw.items():
 				node.set(key, cls.from_raw(value, parent=node, **kwargs), **kwargs)
 		elif isinstance(raw, (tuple, list)):
-			node = cls.DenseNode(parent=parent, parent_key=parent_key, **kwargs)
+			node = cls._DenseNode(parent=parent, parent_key=parent_key, **kwargs)
 			for idx, value in enumerate(raw):
 				idx = str(idx)
 				node.set(idx, cls.from_raw(value, parent=node, **kwargs), **kwargs)
 		else:
-			node = cls.DefaultNode(payload=raw, parent=parent, **kwargs)
+			node = cls._DefaultNode(payload=raw, parent=parent, **kwargs)
 		return node
 
 
@@ -774,9 +774,9 @@ class TreeNode(LocalNode):
 class TreeSparseNode(SparseNode, TreeNode): pass
 class TreeDenseNode(DenseNode, TreeNode): pass
 
-TreeNode.DefaultNode = TreeSparseNode
-TreeNode.SparseNode = TreeSparseNode
-TreeNode.DenseNode = TreeDenseNode
+TreeNode._DefaultNode = TreeSparseNode
+TreeNode._SparseNode = TreeSparseNode
+TreeNode._DenseNode = TreeDenseNode
 
 
 
@@ -791,11 +791,11 @@ class ConvertableNode(TreeNode):
 	
 	
 	def convert_to_sparse(self, addr: Hashable) -> LocalNode:
-		return self._convert_child(addr, self.SparseNode)
+		return self._convert_child(addr, self._SparseNode)
 
 
 	def convert_to_dense(self, addr: Hashable) -> LocalNode:
-		return self._convert_child(addr, self.DenseNode)
+		return self._convert_child(addr, self._DenseNode)
 
 
 
@@ -803,7 +803,7 @@ class AddressNode(LocalNode):
 	_address_delimiter = '.'
 	
 	
-	class ConnectorError(LocalNode.MissingKey):
+	class _ConnectorError(LocalNode._MissingKey):
 		def __init__(self, node, current, rest):
 			super().__init__(current)
 			self.node = node
@@ -819,7 +819,7 @@ class AddressNode(LocalNode):
 			except KeyError:
 				node = None
 			if not isinstance(node, AddressNode):
-				raise self.ConnectorError(self, current, rest)
+				raise self._ConnectorError(self, current, rest)
 			return node._evaluate_address(self._address_delimiter.join(rest))
 		return self, current
 
@@ -845,7 +845,7 @@ class AddressNode(LocalNode):
 	def has(self, addr: str) -> bool:
 		try:
 			node, key = self._evaluate_address(addr)
-		except self.ConnectorError:
+		except self._ConnectorError:
 			return False
 		return super(AddressNode, node).has(key)
 
@@ -858,12 +858,12 @@ class AddressNode(LocalNode):
 
 class AutoAddressNode(AddressNode):
 	def _auto_create_child(self, key):
-		return self.set(key, self.DefaultNode(parent=self))
+		return self.set(key, self._DefaultNode(parent=self))
 
 	def _evaluate_address(self, addr: str, auto_create: bool = False) -> Tuple['AddressNode', str]:
 		try:
 			return super()._evaluate_address(addr)
-		except self.ConnectorError as e:
+		except self._ConnectorError as e:
 			if not auto_create:
 				raise
 			e.node._auto_create_child(e.current)
@@ -878,7 +878,7 @@ class AutoAddressNode(AddressNode):
 
 class AutoTreeNode(AutoAddressNode, ConvertableNode, TreeNode):
 	def _auto_create_child(self, key):
-		node = self.DenseNode(parent=self) if key.isdigit() else self.SparseNode(parent=self)
+		node = self._DenseNode(parent=self) if key.isdigit() else self._SparseNode(parent=self)
 		self.set(key, node)
 class AutoTreeSparseNode(SparseNode, AutoTreeNode): pass
 class AutoTreeDenseNode(DenseNode, AutoTreeNode):
@@ -891,7 +891,7 @@ class AutoTreeDenseNode(DenseNode, AutoTreeNode):
 			pass
 		else:
 			if -len(self._children) <= idx < len(self._children):
-				return self._children[idx] is not self.empty_value
+				return self._children[idx] is not self._empty_value
 		return False
 
 	def _set(self, addr: Hashable, node: LocalNode):
@@ -901,14 +901,14 @@ class AutoTreeDenseNode(DenseNode, AutoTreeNode):
 		elif -len(self._children) <= idx < len(self._children):
 			self._children[idx] = node
 		elif idx > 0:
-			self._children.extend([self.empty_value] * (idx - len(self._children)))
+			self._children.extend([self._empty_value] * (idx - len(self._children)))
 			self._children.append(node)
 		else:
 			raise IndexError(idx)
 
-AutoAddressNode.DefaultNode = AutoTreeSparseNode
-AutoTreeNode.SparseNode = AutoTreeSparseNode
-AutoTreeNode.DenseNode = AutoTreeDenseNode
+AutoAddressNode._DefaultNode = AutoTreeSparseNode
+AutoTreeNode._SparseNode = AutoTreeSparseNode
+AutoTreeNode._DenseNode = AutoTreeDenseNode
 
 
 ####################################################################################################
@@ -927,7 +927,7 @@ class LeafNode(PayloadNode):
 
 
 class TimelineNode(StructureNode):
-	Structure = SequenceStructure
+	_Structure = SequenceStructure
 	# class Structure(SequenceStructure):
 	# 	@property
 	# 	def origin(self) -> StructureNode:
