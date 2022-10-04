@@ -17,6 +17,16 @@ class Registry(OrderedDict):
 		self[name] = obj
 		return obj
 
+	class NotFoundError(KeyError): pass
+
+
+	def find(self, x, default=unspecified_argument):
+		if x in self:
+			return self[x]
+		if default is not unspecified_argument:
+			return default
+		raise self.NotFoundError(x)
+
 
 	def is_registered(self, obj):
 		for opt in self.values():
@@ -99,8 +109,6 @@ class Double_Registry(Registry):
 	def is_known(self, x):
 		return x in self or x in self.backward()
 
-
-	class NotFoundError(KeyError): pass
 
 	def find(self, x, default=unspecified_argument):
 		if x in self:
