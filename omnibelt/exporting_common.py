@@ -1,7 +1,7 @@
 
 from . import Exporter, load_txt, save_txt, Packable, save_pack, load_pack, save_json, save_yaml, load_yaml, load_json
 import dill
-
+import toml
 
 
 class PickleExport(Exporter, extensions='.pk'):
@@ -37,7 +37,7 @@ class JsonExport(Exporter, extensions='.json'):
 
 
 
-class YamlExport(Exporter, extensions='.yaml'):
+class YamlExport(Exporter, extensions=['.yaml', '.yml']):
 	@staticmethod
 	def _load_export(path, src=None, **kwargs):
 		return load_yaml(path, **kwargs)
@@ -45,6 +45,14 @@ class YamlExport(Exporter, extensions='.yaml'):
 	def _export_self(self, path, src=None, **kwargs):
 		return save_yaml(self, path, **kwargs)
 
+
+class TomlExport(Exporter, extensions=['.toml', '.tml']):
+	@staticmethod
+	def _load_export(path, src=None, **kwargs):
+		return toml.load(path, **kwargs)
+	@staticmethod
+	def _export_self(self, path, src=None, **kwargs):
+		return toml.dump(self, path, **kwargs)
 
 
 class StrExport(Exporter, types=str, extensions='.txt'):

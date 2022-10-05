@@ -17,7 +17,7 @@ from .utils import sign, split_dict
 from .ordered_set import OrderedSet
 from .farming import WorkerPool
 # from .exporting import export, load_export, Exportable
-from .exporting import export, load_export, Exporter
+from .exporting import export, load_export, set_export_manager, ExportManager, Exporter, Exportable
 from .tricks import self_aware, clsdec, innerchild, method_wrapper, ClassDescriptable, classdescriptor, \
 	extract_function_signature, capturable_super, captured_super, auto_init, dynamic_capture
 
