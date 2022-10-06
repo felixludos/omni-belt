@@ -145,6 +145,14 @@ class ExportManager:
 		return options[0]
 
 	@classmethod
+	def _export_fmt(cls, fmt: Type['Exporter'], payload: Any, path: Path, **kwargs: Any) -> Path:
+		return fmt._export_payload(payload, path=path, src=cls, **kwargs)
+
+	@classmethod
+	def _load_export_fmt(cls, fmt: Type['Exporter'], path: Path, **kwargs: Any) -> Path:
+		return fmt._load_export(path, src=cls, **kwargs)
+
+	@classmethod
 	def export(cls, payload: Any, name: Optional[str] = None, root: Optional[Union[str, Path]] = None,
 	           fmt: Optional[Union[str, Type['Exporter']]] = None, path: Optional[Union[str, Path]] = None,
 	           **kwargs) -> Path:
@@ -156,7 +164,7 @@ class ExportManager:
 		for fmt in fmts:
 			dest = fmt.create_export_path(name=name, root=root, payload=payload) if path is None else Path(path)
 			try:
-				return fmt._export_payload(payload, path=dest, src=cls, **kwargs)
+				return cls._export_fmt(fmt, payload, dest, **kwargs)
 			except fmt.ExportFailedError:
 				pass
 
@@ -180,7 +188,7 @@ class ExportManager:
 		for fmt in fmts:
 			dest = fmt.create_export_path(name=name, root=root) if path is None else Path(path)
 			try:
-				return fmt._load_export(dest, src=cls, **kwargs)
+				return cls._load_export_fmt(fmt, dest, **kwargs)
 			except fmt.LoadFailedError:
 				pass
 
@@ -192,7 +200,7 @@ class ExportManager:
 	             head: Optional[bool] = None, tail: Optional[bool] = None):
 
 		if head is None and tail is None:
-			head, tail = False, types is None
+			head, tail = types is None, False
 		if head:
 			cls._export_fmts_head.append(exporter)
 		if tail:
@@ -306,23 +314,21 @@ class Exporter:
 		options = getattr(cls, '_my_export_extensions', None)
 		return root / f'{name}{"" if options is None else options[0]}'
 
+
 	class LoadFailedError(ValueError): pass
-
-	@classmethod
-	def _load_export(cls, path: Union[Path, str], src: Type['ExportManager']) -> Any:
-		raise NotImplementedError
-		raise cls.LoadFailedError(path)
-
 	class ExportFailedError(ValueError): pass
 
-	@classmethod
-	def _export_payload(cls, payload: Any, path: Union[Path, str], src: Type['ExportManager']) -> Optional[Path]:
+	@staticmethod
+	def _load_export(path: Union[Path, str], src: Type['ExportManager']) -> Any:
 		raise NotImplementedError
-		raise cls.ExportFailedError(f'{type(payload)}: {payload}')
+
+	@staticmethod
+	def _export_payload(payload: Any, path: Union[Path, str], src: Type['ExportManager']) -> Optional[Path]:
+		raise NotImplementedError
 
 
 
-class ConnectiveExporter(Exporter):
+class CollectiveExporter(Exporter):
 	'''Usually braod exporters that can export multiple types of objects (eg. pickle, json, etc.)'''
 	def __init_subclass__(cls, extensions=None, head=None, tail=None, **kwargs):
 		super().__init_subclass__(extensions=extensions, head=head, tail=tail, **kwargs)
