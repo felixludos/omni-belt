@@ -301,6 +301,7 @@ class auto_methods(capturable_method):
 
 		for method in cls._auto_methods:
 			if method in cls.__dict__:
+				print(method, getattr(cls, method))
 				setattr(cls, method, captured_method(getattr(cls, method)).setup(cls))
 
 
