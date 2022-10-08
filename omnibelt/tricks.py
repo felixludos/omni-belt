@@ -1,5 +1,5 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, \
-	Iterable, Iterator, TypeVar
+	Iterable, Iterator, TypeVar, Type
 import types
 import inspect
 from .typing import unspecified_argument
@@ -79,7 +79,7 @@ class method_decorator: # always replaces the function
 		return self
 
 
-	def setup(self, owner: type, name: Optional[str] = None) -> 'method_decorator':
+	def setup(self, owner: Type, name: Optional[str] = None) -> 'method_decorator':
 		self._is_setup = True
 		if name is None:
 			name = self.fn.__name__
@@ -87,83 +87,124 @@ class method_decorator: # always replaces the function
 		return self
 
 
-	def _setup(self, owner: type, name: str) -> None:
+	def _setup(self, owner: Type, name: str) -> None:
 		pass
 
 
-	def __set_name__(self, owner: type, name: str) -> None:
+	def __set_name__(self, owner: Type, name: str) -> None:
 		setattr(owner, name, self.setup(owner, name))
 
 
-	def __get__(self, instance: Any, owner: type) -> Any:
+	def __get__(self, instance: Any, owner: Type) -> Any:
 		if self._enforce_setup and not self._is_setup:
 			raise RuntimeError(f'{self.__class__.__name__} not setup properly '
 							   f'(call .setup(name, owner) or use as decorator)')
-		return self.package(instance, owner)
+		return self.package(self.fn, instance, owner)
 
 
-	def package(self, instance: Any, owner: type) -> Callable:
-		return self.fn if instance is None else types.MethodType(self.fn, instance)
+	@staticmethod
+	def package(fn: Callable, instance: Any, owner: Type) -> Callable:
+		return fn if instance is None else types.MethodType(fn, instance)
 
 
-
-class method_locator(method_decorator):
-	def _setup(self, owner: type, name: str) -> None:
-		self.location = owner
+class nested_method_decorator(method_decorator):
+	def _setup(self, owner: Type, name: str) -> None:
+		set_name = getattr(self.fn, '__set_name__', None)
+		if set_name is not None:
+			set_name(owner, name)
 		return super()._setup(owner, name)
 
+	def __get__(self, instance: Any, owner: Type) -> Any:
+		if self._enforce_setup and not self._is_setup:
+			raise RuntimeError(f'{self.__class__.__name__} not setup properly '
+							   f'(call .setup(name, owner) or use as decorator)')
+		fn = self.fn
+		getter = getattr(fn, '__get__', None)
+		if getter is not None:
+			fn = getter(instance, owner)
+		return self.package(fn, instance, owner)
+
+# class method_locator(method_decorator):
+# 	def _setup(self, owner: Type, name: str) -> None:
+# 		self.location = owner
+# 		return super()._setup(owner, name)
 
 
-class method_binder(method_decorator):
+class method_binder(nested_method_decorator):
 	class future_method:
-		def __init__(self, fn: Callable, owner: type, instance: Any = None):
+		def __init__(self, src: Type, fn: Callable, owner: Type, instance: Any = None, *,
+		             is_static: Optional[bool] = None):
+			'''
+			
+			Args:
+				src: Class where the method is defined
+				fn: Method to call
+				owner: Class where the method is called
+				instance: Instance where the method is called
+				is_static: Whether the method is a staticmethod or classmethod
+			'''
+			if is_static is None:
+				is_static = inspect.getattr_static(owner, fn.__name__, None) in {staticmethod, classmethod}
 			self.fn = fn
 			self.instance = instance
+			self.src = src
 			self.owner = owner
+			self.is_static = is_static
+			
 
 		def __repr__(self):
 			return f'<future_method {self.fn.__name__} of {self.owner.__name__}>' if self.instance is None \
 				else f'<future_method {self.fn.__name__} of {self.owner.__name__} bound to {self.instance}>'
 
 		def __call__(self, *args: Any, **kwargs: Any) -> Any:
-			if self.instance is None:
+			if not self.is_static and self.instance is None:
 				assert len(args), 'no instance to call method on'
 				self.instance = args[0]
 				args = args[1:]
-			return self.fn_call(self.fn, self.instance, *args, **kwargs)
+			return self.fn_call(self.fn, None if self.is_static else self.instance, *args, **kwargs)
 
 		@staticmethod
 		def fn_call(fn: Callable, instance: Any, *args, **kwargs) -> Any:
+			if instance is None:
+				return fn(*args, **kwargs)
 			return fn(instance, *args, **kwargs)
-
-
-	def package(self, instance: Any, owner: type) -> future_method:
-		return self.future_method(self.fn, owner, instance)
+	
+	def _setup(self, owner: Type, name: str) -> None:
+		self.src = owner
+		return super()._setup(owner, name)
+	
+	def package(self, fn: Callable, instance: Any, owner: Type) -> future_method:
+		return self.future_method(self.src, fn, owner, instance)
 
 
 
 class capturable_method:
-	def captured_method_call(self, src: type, fn: Callable, args: Tuple, kwargs: Dict[str, Any]) -> Any:
+	@classmethod
+	def captured_method_call(cls, self: Any, src: Type, fn: Callable,
+	                         args: Tuple, kwargs: Dict[str, Any]) -> Any:
+		if self is None: # could be a staticmethod or classmethod
+			return fn(*args, **kwargs)
 		return fn(self, *args, **kwargs)
 
 
-class captured_method(method_locator, method_binder):
+class captured_method(method_binder):
 	_capturer_type = None
 
 	class future_method(method_binder.future_method):
 		def fn_call(self, fn: Callable, instance: Any, *args: Any, **kwargs: Any) -> Any:
-			return instance.captured_method_call(self.owner, fn, args, kwargs)
+			return self.owner.capture_method_call(instance, self.src, fn, args, kwargs)
 
 
-	def package(self, instance: Any, owner: type) -> future_method:
-		return self.future_method(self.fn, self.location, instance)
+	# def package(self, instance: Any, owner: Type) -> future_method:
+	# 	return self.future_method(self.fn, self.location, instance)
 
 
 
 
 class _capturable_super_parent: pass # hidden parent class to hold the delegators
 class capturable_super(_capturable_super_parent):
-	def captured_super_call(self, src: type, name: str, args: Tuple, kwargs: Dict[str, Any]) -> Any:
+	@classmethod
+	def captured_super_call(cls, self, src: Type, name: str, args: Tuple, kwargs: Dict[str, Any]) -> Any:
 		'''
 		Called when methods decorated with @capture_super call super() (without parameters).
 
@@ -177,12 +218,12 @@ class capturable_super(_capturable_super_parent):
 
 
 
-class captured_super(method_locator, method_binder):
+class captured_super(method_binder):
 	_child_capturer = capturable_super # gets set as the __class__ of methods decoared with @capture_super
 	_parent_capturer = _capturable_super_parent # contains the corresponding delegator to execute capture
 
 
-	def _setup(self, owner: type, name: str) -> None:
+	def _setup(self, owner: Type, name: str) -> None:
 		self.name = name
 		if self.fn is not None:
 			setattr(self._parent_capturer, self.name, self.run_delegator(self.name))
@@ -193,19 +234,23 @@ class captured_super(method_locator, method_binder):
 
 
 	class future_method(method_binder.future_method):
-		def __init__(self, fn, owner, instance=None, flag=None):
-			super().__init__(fn, owner, instance)
+		def __init__(self, src, fn, owner, instance=None, flag=None):
+			super().__init__(src, fn, owner, instance)
 			self.flag = flag
 
 		def fn_call(self, fn, instance, *args, **kwargs):
+			if instance is None:
+				raise NotImplementedError('capturing super() for classmethods or staticmethods '
+				                          'is currently not supported.')
+				
 			setattr(instance, self.flag, self.owner)
 			return super().fn_call(fn, instance, *args, **kwargs)
 
 
-	def package(self, instance: Any, owner: type) -> future_method:
-		if self.fn is not None and self.fn.__closure__ is not None:
-			self.fn.__closure__[0].cell_contents = self._child_capturer
-		return self.future_method(self.fn, self.location, instance,
+	def package(self, fn: Callable, instance: Any, owner: Type) -> future_method:
+		if fn is not None and fn.__closure__ is not None:
+			fn.__closure__[0].cell_contents = self._child_capturer
+		return self.future_method(self.src, fn, owner, instance,
 			self.run_delegator.single_run.instance_trigger.format(name=self.name))
 
 
@@ -235,7 +280,7 @@ class captured_super(method_locator, method_binder):
 			def run(cls, obj, name, args, kwargs):
 				return obj.captured_super_call(cls, name, args, kwargs)
 
-		def __get__(self, instance: Any, owner: type) -> Union[single_run, Callable]:
+		def __get__(self, instance: Any, owner: Type) -> Union[single_run, Callable]:
 			if instance is None:
 				raise AttributeError(self.name)
 
@@ -261,9 +306,9 @@ class captured(captured_super, captured_method):
 
 
 class method_wrapper(method_decorator):
-	def package(self, obj: Any, cls: Type = None) -> Callable:
+	def package(self, fn: Callable, obj: Any, cls: Type = None) -> Callable:
 		self.obj, self.cls = obj, cls
-		return self.apply_fn
+		return self.apply_fn # TODO: this should call "fn" not "self.fn", since "self.fn" may be a descriptor
 
 
 	def process_args(self, args: Tuple, kwargs: Dict[str, Any]) -> Tuple[Tuple, Dict[str, Any]]:
@@ -305,34 +350,32 @@ class auto_methods(capturable_method):
 
 
 	class _auto_method_arg_fixer:
-		def __init__(self, method: Callable, src: Type, obj: 'auto_methods', **kwargs):
+		def __init__(self, method: Callable, src: Type, owner: Type, obj: 'auto_methods', **kwargs):
 			super().__init__(**kwargs)
 			self.method = method
 			self.src = src
+			self.owner = owner
 			self.obj = obj
 
 		def __call__(self, key: str, default: Optional[Any] = inspect.Parameter.empty) -> Any:
 			raise KeyError(key)
 
-	@staticmethod
-	def _fix_missing_args(missing: List[inspect.Parameter], src: Type, method: Callable,
-	                      args: Tuple, kwargs: Dict[str, Any]):
-		return args, kwargs
-
-	def _auto_fix_args(self, src: Type, method: Callable, args: Tuple, kwargs: Dict[str, Any]) -> None:
+	@classmethod
+	def _auto_fix_args(cls, self, src: Type, method: Callable, args: Tuple, kwargs: Dict[str, Any]) -> None:
 		fixed_args, fixed_kwargs, missing = extract_function_signature(method, (self, *args), kwargs,
-												default_fn=self._auto_method_arg_fixer(method, src, self),
+												default_fn=cls._auto_method_arg_fixer(method, src, cls, self),
 											                  include_missing=True)
 		if len(missing):
-			fixed_args, fixed_kwargs = self._fix_missing_args(missing, src, method, fixed_args, fixed_kwargs)
+			raise TypeError(f'{src.__name__}.{method.__name__}() missing {len(missing)} '
+			                f'required arguments: {", ".join(missing)}')
 		return method(*fixed_args, **fixed_kwargs)
 
-
-	def captured_method_call(self, src: Type['auto_methods'], fn: Callable,
+	@classmethod
+	def captured_method_call(cls, self, src: Type['auto_methods'], fn: Callable,
 	                         args: Tuple, kwargs: Dict[str, Any]) -> Any:
 		if getattr(src, '_auto_methods', None) is not None and fn.__name__ in src._auto_methods:
-			return self._auto_fix_args(src, fn, args, kwargs)
-		return super().captured_method_call(src, fn, args, kwargs)
+			return cls._auto_fix_args(self, src, fn, args, kwargs)
+		return super().captured_method_call(self, src, fn, args, kwargs)
 
 
 
@@ -507,10 +550,10 @@ class simple_dynamic_capture(dynamic_capture):
 
 
 class self_aware:
-	def __init__(self, cls: type) -> None:
+	def __init__(self, cls: Type) -> None:
 		self.cls = cls
 
-	def __set_name__(self, owner: type, name: str) -> None:
+	def __set_name__(self, owner: Type, name: str) -> None:
 		self.cls.owner = owner
 		setattr(owner, name, self.cls)
 
@@ -539,16 +582,16 @@ class clsdec(metaclass=_meta_clsdec):
 
 
 class innerchild:
-	def __init__(self, cls: type) -> None:
+	def __init__(self, cls: Type) -> None:
 		self.cls = cls
 
 
 	class MissingParent(Exception):
-		def __init__(self, base: type, name: str) -> None:
+		def __init__(self, base: Type, name: str) -> None:
 			super().__init__(f'{base.__name__} has not inner class {name}')
 
 
-	def __set_name__(self, owner: type, name: str) -> None:
+	def __set_name__(self, owner: Type, name: str) -> None:
 		cls_name = self.cls.__name__
 		parent = getattr(super(owner, owner), cls_name, None)
 		if parent is None:
@@ -559,7 +602,7 @@ class innerchild:
 
 from inspect import Parameter
 
-def deep_method_finder(typ: type, method: str, *, break_fn: Callable[[type],bool] = None) -> Iterator[Callable]:
+def deep_method_finder(typ: Type, method: str, *, break_fn: Callable[[Type],bool] = None) -> Iterator[Callable]:
 	on_parents = False
 	for cls in typ.mro():
 		fn = cls.__dict__.get(method, None)
@@ -582,7 +625,7 @@ def collect_fn_kwargs(*fns: Callable, default: Any = Parameter.empty, ignore_pos
 
 	return kwargs
 
-def collect_init_kwargs(typ: type, default: Any = Parameter.empty, *, end_type: Union[Sequence[Type], Type] = None,
+def collect_init_kwargs(typ: Type, default: Any = Parameter.empty, *, end_type: Union[Sequence[Type], Type] = None,
 						ignore_positional_only=False, break_fn=None):
 	if break_fn is None:
 		if end_type is not None and isinstance(end_type, type):
