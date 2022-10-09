@@ -300,27 +300,27 @@ class captured(captured_super, captured_method):
 
 
 
-class method_wrapper(method_decorator):
-	def package(self, fn: Callable, obj: Any, cls: Type = None) -> Callable:
-		self.obj, self.cls = obj, cls
-		return self.apply_fn # TODO: this should call "fn" not "self.fn", since "self.fn" may be a descriptor
-
-
-	def process_args(self, args: Tuple, kwargs: Dict[str, Any]) -> Tuple[Tuple, Dict[str, Any]]:
-		args = (self.obj, *args)
+class method_wrapper(nested_method_decorator):
+	def package(self, fn: Callable, instance: Any, owner: Type = None) -> Callable:
+		return self.method_application(self, fn, instance, owner)
+	
+	@staticmethod
+	def process_args(args, kwargs, owner, instance, fn):
 		return args, kwargs
 
-
 	@staticmethod
-	def process_out(out: Any) -> Any:
+	def process_out(out: Any, owner, instance, fn) -> Any:
 		return out
 
+	class method_application:
+		def __init__(self, wrapper: 'method_wrapper', fn: Callable, instance: Any, owner: Type = None):
+			self.wrapper, self.fn, self.instance, self.owner = wrapper, fn, instance, owner
 
-	def apply_fn(self, *args: Any, **kwargs: Any) -> Any:
-		args, kwargs = self.process_args(args, kwargs)
-		out = self.fn(*args, **kwargs)
-		out = self.process_out(out)
-		return out
+		def __call__(self, *args, **kwargs):
+			args, kwargs = self.wrapper.process_args(args, kwargs, self.owner, self.instance, self.fn)
+			out = self.fn(*args, **kwargs)
+			return self.wrapper.process_out(out, self.owner, self.instance, self.fn)
+
 
 from collections import OrderedDict
 
