@@ -104,7 +104,10 @@ class method_decorator: # always replaces the function
 
 	@staticmethod
 	def package(fn: Callable, instance: Any, owner: Type) -> Callable:
-		return fn if instance is None else types.MethodType(fn, instance)
+		getter = getattr(fn, '__get__', None)
+		if getter is not None and instance is not None:
+			return getter(instance, owner)
+		return fn
 
 
 class nested_method_decorator(method_decorator):
@@ -124,16 +127,11 @@ class nested_method_decorator(method_decorator):
 			fn = getter(instance, owner)
 		return self.package(fn, instance, owner)
 
-# class method_locator(method_decorator):
-# 	def _setup(self, owner: Type, name: str) -> None:
-# 		self.location = owner
-# 		return super()._setup(owner, name)
-
 
 class method_binder(nested_method_decorator):
 	class future_method:
 		def __init__(self, src: Type, fn: Callable, owner: Type, instance: Any = None, *,
-		             is_static: Optional[bool] = None):
+		             is_static: Optional[bool] = None, **kwargs):
 			'''
 			
 			Args:
@@ -144,7 +142,7 @@ class method_binder(nested_method_decorator):
 				is_static: Whether the method is a staticmethod or classmethod
 			'''
 			if is_static is None:
-				is_static = inspect.getattr_static(owner, fn.__name__, None) in {staticmethod, classmethod}
+				is_static = fn in {staticmethod, classmethod}
 			self.fn = fn
 			self.instance = instance
 			self.src = src
@@ -165,26 +163,23 @@ class method_binder(nested_method_decorator):
 
 		@staticmethod
 		def fn_call(fn: Callable, instance: Any, *args, **kwargs) -> Any:
-			if instance is None:
-				return fn(*args, **kwargs)
-			return fn(instance, *args, **kwargs)
+			return fn(*args, **kwargs)
 	
 	def _setup(self, owner: Type, name: str) -> None:
 		self.src = owner
 		return super()._setup(owner, name)
 	
 	def package(self, fn: Callable, instance: Any, owner: Type) -> future_method:
-		return self.future_method(self.src, fn, owner, instance)
+		return self.future_method(self.src, fn, owner, instance,
+		                          is_static=isinstance(self.fn, (staticmethod, classmethod)))
 
 
 
 class capturable_method:
 	@classmethod
-	def captured_method_call(cls, self: Any, src: Type, fn: Callable,
+	def captured_method_call(cls, self: Optional['capturable_method'], src: Type, fn: Callable,
 	                         args: Tuple, kwargs: Dict[str, Any]) -> Any:
-		if self is None: # could be a staticmethod or classmethod
-			return fn(*args, **kwargs)
-		return fn(self, *args, **kwargs)
+		return fn(*args, **kwargs)
 
 
 class captured_method(method_binder):
@@ -192,7 +187,7 @@ class captured_method(method_binder):
 
 	class future_method(method_binder.future_method):
 		def fn_call(self, fn: Callable, instance: Any, *args: Any, **kwargs: Any) -> Any:
-			return self.owner.capture_method_call(instance, self.src, fn, args, kwargs)
+			return self.owner.captured_method_call(instance, self.src, fn, args, kwargs)
 
 
 	# def package(self, instance: Any, owner: Type) -> future_method:
@@ -347,7 +342,7 @@ class auto_methods(capturable_method):
 		for method in cls._auto_methods:
 			if method in cls.__dict__:
 				print(method, getattr(cls, method))
-				setattr(cls, method, captured_method(getattr(cls, method)).setup(cls))
+				setattr(cls, method, captured_method(inspect.getattr_static(cls, method)).setup(cls, method))
 
 
 	class _auto_method_arg_fixer:
@@ -361,14 +356,23 @@ class auto_methods(capturable_method):
 		def __call__(self, key: str, default: Optional[Any] = inspect.Parameter.empty) -> Any:
 			raise KeyError(key)
 
+	class MissingArgumentsError(TypeError):
+		def __init__(self, src, method, missing, *, msg=None):
+			if msg is None:
+				msg = f'{src.__name__}.{method.__name__}() missing {len(missing)} ' \
+				      f'required arguments: {", ".join(missing)}'
+			super().__init__(msg)
+			self.missing = missing
+			self.src = src
+			self.method = method
+
 	@classmethod
 	def _auto_fix_args(cls, self, src: Type, method: Callable, args: Tuple, kwargs: Dict[str, Any]) -> None:
-		fixed_args, fixed_kwargs, missing = extract_function_signature(method, (self, *args), kwargs,
+		fixed_args, fixed_kwargs, missing = extract_function_signature(method, args, kwargs,
 												default_fn=cls._auto_method_arg_fixer(method, src, cls, self),
 											                  include_missing=True)
 		if len(missing):
-			raise TypeError(f'{src.__name__}.{method.__name__}() missing {len(missing)} '
-			                f'required arguments: {", ".join(missing)}')
+			raise cls.MissingArgumentsError(src, method, missing)
 		return method(*fixed_args, **fixed_kwargs)
 
 	@classmethod

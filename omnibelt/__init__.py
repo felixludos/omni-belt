@@ -3,7 +3,7 @@ from .flow import safe_self_execute, multi_index
 from .logging import get_printer, get_global_setting, get_global_settings, set_global_setting, set_printer_setting
 from .typing import primitives, unspecified_argument, join_classes, replace_class, \
 	duplicate_class, duplicate_func, duplicate_instance, wrap_class, mix_into, \
-	conditional_method, lambda_conditional_method, agnosticmethod#, agnosticproperty
+	conditional_method, lambda_conditional_method, agnosticmethod, agnostic, agnosticproperty
 from .filesystem import create_dir, crawl, spawn_path_options, load_yaml, save_yaml, \
 	load_csv, load_tsv, load_json, save_json, monkey_patch, load_txt, save_txt, Persistent, HierarchyPersistent, \
 	load_pickle, save_pickle

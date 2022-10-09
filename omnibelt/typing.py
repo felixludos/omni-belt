@@ -1,4 +1,5 @@
 import types
+from typing import Callable, Any
 import inspect
 
 
@@ -9,19 +10,49 @@ primitives = (str, int, float, bool, type(None))
 class unspecified_argument:
 	@staticmethod
 	def __repr__():
-		return '[unspecified]'
+		return '<unspecified>'
 
 
-
-class agnosticmethod:
-	def __init__(self, fn):
+class agnostic:
+	def __init__(self, fn=None, **kwargs):
+		super().__init__(**kwargs)
 		self.fn = fn
 
+	def __get__(self, instance, owner=None):
+		assert owner is not None, f'owner is missing: {self.fn} ({instance})'
+		if instance is None:
+			instance = owner
+		return self.fn.__get__(instance, owner)
+
+
+class agnosticproperty(property):
+	def __get__(self, instance, owner=None):
+		assert owner is not None, f'owner is missing: {self.fget} ({instance})'
+		if instance is None:
+			instance = owner
+		return super().__get__(instance, owner)
+
+	def getter(self, fget: Callable[[Any], Any]) -> property:
+		return type(self)(fget, self.fset, self.fdel, self.__doc__)
+
+	def setter(self, fset: Callable[[Any, Any], None]) -> 'agnosticproperty':
+		return type(self)(self.fget, fset, self.fdel, self.__doc__)
 	
-	def __get__(self, obj, cls):
-		# if inspect.isgeneratorfunction(self.fn):
-		# 	return types.GeneratorType(self.fn, obj)
-		return types.MethodType(self.fn, cls if obj is None else obj)
+	def deleter(self, fdel: Callable[[Any], None]) -> 'agnosticproperty':
+		return type(self)(self.fget, self.fset, fdel, self.__doc__)
+
+
+agnosticmethod = agnostic
+
+# class agnosticmethod:
+# 	def __init__(self, fn):
+# 		self.fn = fn
+#
+#
+# 	def __get__(self, obj, cls):
+# 		# if inspect.isgeneratorfunction(self.fn):
+# 		# 	return types.GeneratorType(self.fn, obj)
+# 		return types.MethodType(self.fn, cls if obj is None else obj)
 
 
 # class agnosticproperty:
