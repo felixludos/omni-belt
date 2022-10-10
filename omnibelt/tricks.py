@@ -2,6 +2,8 @@ from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, 
 	Iterable, Iterator, TypeVar, Type
 import types
 import inspect
+from collections import OrderedDict
+
 from .typing import unspecified_argument
 
 
@@ -322,8 +324,6 @@ class method_wrapper(nested_method_decorator):
 			return self.wrapper.process_out(out, self.owner, self.instance, self.fn)
 
 
-from collections import OrderedDict
-
 
 class auto_methods(capturable_method):
 	# _auto_methods = None
@@ -454,6 +454,251 @@ class simple_dynamic_capture(dynamic_capture):
 	             *method_names: str, full_bases: Optional[bool] = False, full_mro: Optional[bool] = False):
 		super().__init__(target.mro() if full_mro else target.__bases__ if full_bases else (target,),
 		                 fn, *method_names)
+
+
+from functools import cached_property
+# from .typing import agnosticproperty
+
+class smartproperty(property):
+	_unknown = object()
+
+	def __init__(self, fget=None, *, name=None, src=None, cache=False, **kwargs):
+		super().__init__(fget=fget, **kwargs)
+		self.name = name
+		self.src = src
+
+		self.cache = cache
+		self.cached_value = self._unknown
+
+	def copy(self, src=unspecified_argument, name=unspecified_argument,
+	         default=unspecified_argument, cache=unspecified_argument,
+	         fget=unspecified_argument, fset=unspecified_argument, fdel=unspecified_argument, doc=unspecified_argument,
+	         **kwargs):
+		if src is unspecified_argument:
+			src = self.src
+		if name is unspecified_argument:
+			name = self.name
+		if default is unspecified_argument:
+			default = self.default
+		if cache is unspecified_argument:
+			cache = self.cache
+		if fget is unspecified_argument:
+			fget = self.fget
+		if fset is unspecified_argument:
+			fset = self.fset
+		if fdel is unspecified_argument:
+			fdel = self.fdel
+		if doc is unspecified_argument:
+			doc = self.__doc__
+		return type(self)(name=name, src=src, default=default, cache=cache,
+		                  fget=fget, fset=fset, fdel=fdel, doc=doc, **kwargs)
+
+	def __set_name__(self, owner, name):
+		if self.src is not None and owner is not self.src:
+			setattr(owner, name, self.copy(src=owner, name=name))
+		else:
+			if self.name is None: # TODO: test with using subsequent .setter as with properties
+				self.name = name
+			self.src = owner
+			setattr(owner, name, self)
+
+	def __call__(self, fget: Callable[[], Any]) -> 'smartproperty':
+		return self.getter(fget)
+
+	def getter(self, fget: Callable[[], Any]) -> 'smartproperty':
+		self.fget = fget
+		return self
+
+	def setter(self, fset: Callable[[Any], None]) -> 'smartproperty':
+		self.fset = fset
+		return self
+
+	def deleter(self, fdel: Callable[[], None]) -> 'smartproperty':
+		self.fdel = fdel
+		return self
+
+	def __get__(self, instance, owner=None):
+		return self.get_value(instance, owner)
+
+	def __set__(self, instance, value) -> None:
+		self.update_value(instance, value)
+
+	def __delete__(self, instance):  # TODO: test this
+		self.reset(instance)
+
+	class MissingValueError(AttributeError):
+		def __init__(self, base, name, *, msg=None):
+			basename = base.__name__ if isinstance(base, type) else base.__class__.__name__
+			super().__init__(f'{basename}.{name} has no value' if msg is None else msg)
+
+	@staticmethod
+	def _call_descriptor(fn, instance, owner, *args, **kwargs):
+		getter = getattr(fn, '__get__', None)
+		if getter is not None:
+			fn = getter(instance, owner)
+		return fn(*args, **kwargs)
+
+	@staticmethod
+	def _get_cache_info(base, name):
+		# (f'__cached_{self.name}' if isinstance(base, type) else self.name)
+		return getattr(base, '__dict__', None), name
+
+	def get_value(self, base, owner=None): # TODO: maybe make thread-safe by using a lock
+		'''
+		Check cache of base first, if that fails, then try getter function
+
+		Args:
+			base: instance or type to get value from
+			owner: type of instance if it is provided
+
+		Returns:
+			value of property
+
+		'''
+		cache, key = self._get_cache_info(base, self.name)
+		if cache is not None and key is not None and key in cache:
+			return cache[key]
+		if self.fget is None:
+			raise self.MissingValueError(base, self.name)
+		value = self._call_descriptor(self.fget, base, owner)
+		if self.cache and cache is not None and key is not None:
+			cache[key] = value
+		return value
+
+	def update_value(self, base, value):
+		'''Try manually specified setter function, if that fails, then try to set value in cache'''
+		if self.fset is None:
+			cache, key = self._get_cache_info(base, self.name)
+			if cache is None or key is None:
+				raise AttributeError(f'cannot cache attribute {self.name} of {base}')
+			cache[key] = value
+		else:
+			return self._call_descriptor(self.fset, base, None, value)
+
+	def reset(self, base):
+		if self.fdel is None:
+			cache, key = self._get_cache_info(base, self.name)
+			if cache is None or key is None:
+				raise AttributeError(f'cannot reset attribute {self.name} of {base}')
+			cache.pop(key, None)
+		else:
+			return self._call_descriptor(self.fdel, base, None)
+
+
+class autoproperty(smartproperty): # agnostic to whether it is a class or instance attribute
+	def _get_base(self, instance, owner=None):
+		return owner if instance is None else instance
+
+	def get_value(self, base, owner=None):
+		if base is self.src and self.cached_value is not self._unknown:
+			return self.cached_value
+
+		raise NotImplementedError
+
+	def update_value(self, base, value):
+		if self.fset is None and base is self.src:
+			self.cached_value = value
+		else:
+			super().update_value(base, value)
+
+	def reset(self, base):
+		if self.fdel is None and base is self.src:
+			self.cached_value = self._unknown
+		else:
+			super().reset(base)
+
+	def __get__(self, instance, owner=None):
+		return self.get_value(self._get_base(instance, owner), owner)
+
+	def __set__(self, instance, value) -> None:
+		self.update_value(self._get_base(instance), value)
+
+	def __delete__(self, instance):  # TODO: test this
+		self.reset(self._get_base(instance))
+
+
+
+class cachedproperty(smartproperty):
+	def __init__(self, fget: Callable[[], Any] = None, *, cache=unspecified_argument, **kwargs):
+		super().__init__(fget=fget, **kwargs)
+		self.cache = cache
+
+
+class referenceproperty(smartproperty):
+
+	class reference_getter:
+		def __init__(self, name):
+			self.name = name
+
+		def __get__(self, instance, owner=None):
+			pass
+
+
+
+	def __init__(self, ref_key: str, *, default=unspecified_argument, **kwargs):
+		super().__init__(default=default, **kwargs)
+		self.ref_key = ref_key
+
+
+class defaultproperty(smartproperty):
+	def __init__(self, default=unspecified_argument, *, fget=unspecified_argument, **kwargs):
+		if default is unspecified_argument:
+			default = self._unknown
+		fget, default = self._check_fget(fget, default)
+		super().__init__(fget=fget, **kwargs)
+		self.default = default
+
+	def _check_fget(self, fget=unspecified_argument, default=unspecified_argument):
+		if fget is unspecified_argument:
+			if callable(default) and not isinstance(default, type) and default.__qualname__ != default.__name__:
+				return default, unspecified_argument  # decorator has no other args
+			return None, default  # no fget provided (optionally can be added with __call__)
+		return fget, default  # fget was specified as keyword argument
+
+	def get_value(self, base, owner=None): # TODO: maybe make thread-safe by using a lock
+		try:
+			return super().get_value(base, owner)
+		except self.MissingValueError:
+			if self.default is self._unknown:
+				raise
+			return self.default
+
+
+from .utils import split_dict
+
+
+class Smart:
+	def _extract_smart_properties(self, kwargs, *, src=None):
+		if src is None:
+			src = dict(self._my_smart_properties())
+		found, remaining = split_dict(kwargs, src)
+		for key, val in found.items():
+			setattr(self, key, val)
+		return remaining
+
+	def _get_property(self, name, default=unspecified_argument):
+		try:
+			return inspect.getattr_static(self, name)
+		except AttributeError:
+			if default is unspecified_argument:
+				raise
+			return default
+
+	# def _fill_smart_properties(self, kwargs, *, src=None):
+	# 	if src is None:
+	# 		src = dict(self._my_smart_properties())
+	# 	for key, val in src.items():
+	# 		if key not in kwargs:
+	# 			kwargs[key] = val
+
+	@classmethod
+	def _my_smart_properties(cls):
+		for name, value in cls.__dict__.items():
+			if isinstance(value, smartproperty):
+				yield name, value
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **self._extract_smart_properties(kwargs))
 
 
 
