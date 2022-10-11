@@ -462,13 +462,10 @@ from functools import cached_property
 class smartproperty(property):
 	_unknown = object()
 
-	def __init__(self, fget=None, *, name=None, src=None, cache=False, **kwargs):
+	def __init__(self, fget=None, *, name=None, src=None, **kwargs):
 		super().__init__(fget=fget, **kwargs)
 		self.name = name
 		self.src = src
-
-		self.cache = cache
-		self.cached_value = self._unknown
 
 	def copy(self, src=unspecified_argument, name=unspecified_argument,
 	         default=unspecified_argument, cache=unspecified_argument,
@@ -560,11 +557,8 @@ class smartproperty(property):
 			return cache[key]
 		if self.fget is None:
 			raise self.MissingValueError(base, self.name)
-		value = self._call_descriptor(self.fget, base, owner)
-		if self.cache and cache is not None and key is not None:
-			cache[key] = value
-		return value
-
+		return self._call_descriptor(self.fget, base, owner)
+		
 	def update_value(self, base, value):
 		'''Try manually specified setter function, if that fails, then try to set value in cache'''
 		if self.fset is None:
@@ -585,15 +579,25 @@ class smartproperty(property):
 			return self._call_descriptor(self.fdel, base, None)
 
 
-class autoproperty(smartproperty): # agnostic to whether it is a class or instance attribute
-	def _get_base(self, instance, owner=None):
-		return owner if instance is None else instance
+
+class cachedproperty(smartproperty):
+	def __init__(self, fget: Callable[[], Any] = None, *, cache=False, **kwargs):
+		super().__init__(fget=fget, **kwargs)
+		self.cache = cache
+		self.cached_value = self._unknown
 
 	def get_value(self, base, owner=None):
 		if base is self.src and self.cached_value is not self._unknown:
 			return self.cached_value
-
-		raise NotImplementedError
+		value = super().get_value(base, owner)
+		if self.cache:
+			if base is self.src:
+				self.cached_value = value
+			else:
+				cache, key = self._get_cache_info(base, self.name)
+				if cache is not None and key is not None:
+					cache[key] = value
+		return value
 
 	def update_value(self, base, value):
 		if self.fset is None and base is self.src:
@@ -607,6 +611,12 @@ class autoproperty(smartproperty): # agnostic to whether it is a class or instan
 		else:
 			super().reset(base)
 
+
+
+class autoproperty(cachedproperty): # agnostic to whether it is a class or instance attribute
+	def _get_base(self, instance, owner=None):
+		return owner if instance is None else instance
+
 	def __get__(self, instance, owner=None):
 		return self.get_value(self._get_base(instance, owner), owner)
 
@@ -615,29 +625,86 @@ class autoproperty(smartproperty): # agnostic to whether it is a class or instan
 
 	def __delete__(self, instance):  # TODO: test this
 		self.reset(self._get_base(instance))
+	
+	
+class _referenceproperty_target:
+	def __init__(self, prop, base):
+		self.prop = prop
+		self.base = base
+	
+	def _get_reference(self):
+		ref = getattr(self.base, self.prop.ref_name, None)
+		if ref is None:
+			raise self.prop.MissingReferenceError(f'{self.base} has no reference to {self.prop.ref_name}')
+		return ref
 
+	@staticmethod
+	def target_call(ref, *args, **kwargs):
+		raise NotImplementedError
 
-
-class cachedproperty(smartproperty):
-	def __init__(self, fget: Callable[[], Any] = None, *, cache=unspecified_argument, **kwargs):
-		super().__init__(fget=fget, **kwargs)
-		self.cache = cache
+	def __call__(self, *args, **kwargs):
+		return self.target_call(self._get_reference(), *args, **kwargs)
 
 
 class referenceproperty(smartproperty):
 
-	class reference_getter:
-		def __init__(self, name):
-			self.name = name
+	class MissingReferenceError(AttributeError):
+		pass
+	
+	class _reference_getter(_referenceproperty_target):
+		def target_call(self, ref):
+			return getattr(ref, self.prop.name)
+	
+	class _reference_setter(_referenceproperty_target):
+		def target_call(self, ref, value):
+			setattr(ref, self.prop.name, value)
+	
+	class _reference_deleter(_referenceproperty_target):
+		def target_call(self, ref):
+			delattr(ref, self.prop.name)
+	
+	class _reference_descriptor:
+		def __init__(self, prop, target):
+			self.prop = prop
+			self.target = target
 
 		def __get__(self, instance, owner=None):
-			pass
+			return self.target(self.prop, instance)
 
-
-
-	def __init__(self, ref_key: str, *, default=unspecified_argument, **kwargs):
-		super().__init__(default=default, **kwargs)
+	def __init__(self, ref_key: str, *, use_getter=True, use_setter=False, use_deleter=False, **kwargs):
+		super().__init__(**kwargs)
 		self.ref_key = ref_key
+		self.use_getter = use_getter
+		self.use_setter = use_setter
+		self.use_deleter = use_deleter
+		
+	@property
+	def fget(self):
+		if self._fget is None and self.use_getter:
+			return self._reference_descriptor(self, self._reference_getter)
+		return self._fget
+	@fget.setter
+	def fget(self, value):
+		self._fget = value
+	
+	@property
+	def fset(self):
+		if self._fset is None and self.use_setter:
+			return self._reference_descriptor(self, self._reference_setter)
+		return self._fset
+	@fset.setter
+	def fset(self, value):
+		self._fset = value
+	
+	@property
+	def fdel(self):
+		if self._fdel is None and self.use_deleter:
+			return self._reference_descriptor(self, self._reference_deleter)
+		return self._fdel
+	@fdel.setter
+	def fdel(self, value):
+		self._fdel = value
+	
 
 
 class defaultproperty(smartproperty):
