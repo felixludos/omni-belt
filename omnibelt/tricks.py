@@ -326,7 +326,7 @@ class method_wrapper(nested_method_decorator):
 
 
 class auto_methods(capturable_method):
-	# _auto_methods = None
+	_auto_methods = None
 	def __init_subclass__(cls, auto_methods: Optional[Union[str, Sequence[str]]] = (),
 	                      inheritable_auto_methods: Optional[Union[str, Sequence[str]]] = (), **kwargs):
 		super().__init_subclass__(**kwargs)
@@ -345,6 +345,19 @@ class auto_methods(capturable_method):
 				setattr(cls, method, captured_method(inspect.getattr_static(cls, method)).setup(cls, method))
 
 
+	@classmethod
+	def _auto_method_call(cls, self, src: Type, method: Callable, args: Tuple, kwargs: Dict[str, Any]) -> None:
+		raise NotImplementedError
+
+	@classmethod
+	def captured_method_call(cls, self, src: Type['auto_methods'], fn: Callable,
+	                         args: Tuple, kwargs: Dict[str, Any]) -> Any:
+		if getattr(src, '_auto_methods', None) is not None and fn.__name__ in src._auto_methods:
+			return cls._auto_method_call(self, src, fn, args, kwargs)
+		return super().captured_method_call(self, src, fn, args, kwargs)
+
+
+class auto_fix_args(auto_methods):
 	class _auto_method_arg_fixer:
 		def __init__(self, method: Callable, src: Type, owner: Type, obj: 'auto_methods', **kwargs):
 			super().__init__(**kwargs)
@@ -367,21 +380,13 @@ class auto_methods(capturable_method):
 			self.method = method
 
 	@classmethod
-	def _auto_fix_args(cls, self, src: Type, method: Callable, args: Tuple, kwargs: Dict[str, Any]) -> None:
+	def _auto_method_call(cls, self, src: Type, method: Callable, args: Tuple, kwargs: Dict[str, Any]) -> None:
 		fixed_args, fixed_kwargs, missing = extract_function_signature(method, args, kwargs,
 												default_fn=cls._auto_method_arg_fixer(method, src, cls, self),
 											                  include_missing=True)
 		if len(missing):
 			raise cls.MissingArgumentsError(src, method, missing)
 		return method(*fixed_args, **fixed_kwargs)
-
-	@classmethod
-	def captured_method_call(cls, self, src: Type['auto_methods'], fn: Callable,
-	                         args: Tuple, kwargs: Dict[str, Any]) -> Any:
-		if getattr(src, '_auto_methods', None) is not None and fn.__name__ in src._auto_methods:
-			return cls._auto_fix_args(self, src, fn, args, kwargs)
-		return super().captured_method_call(self, src, fn, args, kwargs)
-
 
 
 class auto_init(auto_methods, inheritable_auto_methods='__init__'):
@@ -528,6 +533,21 @@ class smartproperty(property):
 			basename = base.__name__ if isinstance(base, type) else base.__class__.__name__
 			super().__init__(f'{basename}.{name} has no value' if msg is None else msg)
 
+	class GetterFailedError(MissingValueError):
+		def __init__(self, base, name=None, *, msg=None):
+			basename = base.__name__ if isinstance(base, type) else base.__class__.__name__
+			super().__init__(f'{basename}{"" if name is None else "."+name}' if msg is None else msg)
+
+	# class SetterFailedError(TypeError):
+	# 	def __init__(self, base, name=None, value=None, *, msg=None):
+	# 		basename = base.__name__ if isinstance(base, type) else base.__class__.__name__
+	# 		super().__init__(f'{basename}{"" if name is None else "."+name} setter failed' if msg is None else msg)
+	#
+	# class DeleterFailedError(TypeError):
+	# 	def __init__(self, base, name=None, *, msg=None):
+	# 		basename = base.__name__ if isinstance(base, type) else base.__class__.__name__
+	# 		super().__init__(f'{basename}{"" if name is None else "."+name} deleter failed' if msg is None else msg)
+
 	@staticmethod
 	def _call_descriptor(fn, instance, owner, *args, **kwargs):
 		getter = getattr(fn, '__get__', None)
@@ -557,7 +577,10 @@ class smartproperty(property):
 			return cache[key]
 		if self.fget is None:
 			raise self.MissingValueError(base, self.name)
-		return self._call_descriptor(self.fget, base, owner)
+		try:
+			return self._call_descriptor(self.fget, base, owner)
+		except self.GetterFailedError:
+			raise self.MissingValueError(base, self.name) from None
 		
 	def update_value(self, base, value):
 		'''Try manually specified setter function, if that fails, then try to set value in cache'''
@@ -631,11 +654,11 @@ class _referenceproperty_target:
 	def __init__(self, prop, base):
 		self.prop = prop
 		self.base = base
-	
+
 	def _get_reference(self):
 		ref = getattr(self.base, self.prop.ref_name, None)
-		if ref is None:
-			raise self.prop.MissingReferenceError(f'{self.base} has no reference to {self.prop.ref_name}')
+		# if ref is None:
+		# 	raise self.prop.MissingReferenceError(f'{self.base} has no reference to {self.prop.ref_name}')
 		return ref
 
 	@staticmethod
@@ -653,6 +676,8 @@ class referenceproperty(smartproperty):
 	
 	class _reference_getter(_referenceproperty_target):
 		def target_call(self, ref):
+			if ref is None:
+				raise self.prop.GetterFailedError(self.base, self.prop.name)
 			return getattr(ref, self.prop.name)
 	
 	class _reference_setter(_referenceproperty_target):
@@ -734,7 +759,7 @@ class defaultproperty(smartproperty):
 from .utils import split_dict
 
 
-class Smart:
+class TrackSmart:
 	def _extract_smart_properties(self, kwargs, *, src=None):
 		if src is None:
 			src = dict(self._my_smart_properties())
