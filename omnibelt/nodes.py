@@ -829,7 +829,8 @@ class AddressNode(LocalNode):
 			assert isinstance(value, AddressNode), f'Unexpected node type: {type(value)}'
 			if (include_connector_payloads and value.has_payload) or value.is_leaf:
 				yield key, value.payload
-			for subkey, subvalue in value.flatten(skip_empty=skip_empty):
+			for subkey, subvalue in value.flatten(include_connector_payloads=include_connector_payloads,
+			                                      skip_empty=skip_empty):
 				yield f'{key}{self._address_delimiter}{subkey}', subvalue
 
 	def get(self, addr: str, default: Any = unspecified_argument) -> 'LocalNode':
