@@ -497,6 +497,9 @@ class LocalNode(PayloadNode):
 			return raw
 		return cls(payload=raw, parent=parent, **kwargs)
 
+	def my_address(self):
+		parent = self.parent
+		return () if parent is None else parent.my_address() + (self.parent_key,)
 
 	def __init__(self, payload=unspecified_argument, *, parent: Optional['LocalNode'] = unspecified_argument,
 	             children: Optional[ChildrenStructure] = unspecified_argument,
@@ -510,6 +513,13 @@ class LocalNode(PayloadNode):
 		self._parent_key = parent_key
 
 
+	@property
+	def root(self) -> 'LocalNode':
+		parent = self.parent
+		if parent is None:
+			return self
+		return parent.root
+	
 	@property
 	def parent(self):
 		if self.has_parent:

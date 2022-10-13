@@ -326,7 +326,7 @@ class method_wrapper(nested_method_decorator):
 
 
 class auto_methods(capturable_method):
-	_auto_methods = None
+	# _auto_methods = None
 	def __init_subclass__(cls, auto_methods: Optional[Union[str, Sequence[str]]] = (),
 	                      inheritable_auto_methods: Optional[Union[str, Sequence[str]]] = (), **kwargs):
 		super().__init_subclass__(**kwargs)
@@ -791,6 +791,33 @@ class TrackSmart:
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **self._extract_smart_properties(kwargs))
+
+
+class Tracer(tuple):
+	def append(self, term):
+		return self.__class__((self, term))
+
+	def extend(self, terms):
+		for term in terms:
+			self = self.append(term)
+		return self
+
+	def back(self, n=1, strict=True):
+		if n == 0:
+			return self
+		if n < 0:
+			raise ValueError('n must be >= 0')
+		if not self:
+			if strict:
+				raise IndexError('cannot go back from empty tracer')
+			return self
+		return self[0].back(n - 1)
+
+	@property
+	def path(self):
+		if len(self):
+			return self[0].path + (self[1],)
+		return ()
 
 
 
