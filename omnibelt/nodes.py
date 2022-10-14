@@ -607,15 +607,15 @@ class LocalNode(PayloadNode):
 		return self.payload
 
 
-	def children(self, keys=True, skip_empty=False):
-		for addr, node in self._iterate_children():
-			if (skip_empty or not keys) and node is self.empty_value:
+	def named_children(self, skip_empty=True):
+		for key, child in self._iterate_children():
+			if skip_empty and not child.has_payload:
 				continue
-			if keys:
-				yield addr, node
-			else:
-				yield node
+			yield key, child
 
+	def children(self, skip_empty=True):
+		for key, child in self.named_children(skip_empty=skip_empty):
+			yield child
 
 	def add_all(self, children: Iterable[Tuple[Hashable, 'LocalNode']], **kwargs) -> None:
 		for addr, node in children:

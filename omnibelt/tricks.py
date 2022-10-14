@@ -465,7 +465,7 @@ from functools import cached_property
 # from .typing import agnosticproperty
 
 class smartproperty(property):
-	_unknown = object()
+	unknown = object()
 
 	def __init__(self, fget=None, *, name=None, src=None, **kwargs):
 		super().__init__(fget=fget, **kwargs)
@@ -607,10 +607,10 @@ class cachedproperty(smartproperty):
 	def __init__(self, fget: Callable[[], Any] = None, *, cache=False, **kwargs):
 		super().__init__(fget=fget, **kwargs)
 		self.cache = cache
-		self.cached_value = self._unknown
+		self.cached_value = self.unknown
 
 	def get_value(self, base, owner=None):
-		if base is self.src and self.cached_value is not self._unknown:
+		if base is self.src and self.cached_value is not self.unknown:
 			return self.cached_value
 		value = super().get_value(base, owner)
 		if self.cache:
@@ -630,7 +630,7 @@ class cachedproperty(smartproperty):
 
 	def reset(self, base):
 		if self.fdel is None and base is self.src:
-			self.cached_value = self._unknown
+			self.cached_value = self.unknown
 		else:
 			super().reset(base)
 
@@ -735,7 +735,7 @@ class referenceproperty(smartproperty):
 class defaultproperty(smartproperty):
 	def __init__(self, default=unspecified_argument, *, fget=unspecified_argument, **kwargs):
 		if default is unspecified_argument:
-			default = self._unknown
+			default = self.unknown
 		fget, default = self._check_fget(fget, default)
 		super().__init__(fget=fget, **kwargs)
 		self.default = default
@@ -751,7 +751,7 @@ class defaultproperty(smartproperty):
 		try:
 			return super().get_value(base, owner)
 		except self.MissingValueError:
-			if self.default is self._unknown:
+			if self.default is self.unknown:
 				raise
 			return self.default
 
@@ -819,6 +819,51 @@ class Tracer(tuple):
 			return self[0].path + (self[1],)
 		return ()
 
+
+
+def inject_modifiers(base, *mods, name=None):
+	'''
+	Mods should be types that are used to modify the cls. The order of the mods corresponds to the order
+	in which the cls is "modified", so for example:
+
+	```python
+
+	class A(Modifiable): pass
+	class B: pass
+	class C: pass
+
+	out = A.inject_mods(B, C)
+	assert out.mro() == [out, C, B, A, Modifiable, object]
+	assert out.__name__ == 'C_B_A' # default name
+	```
+	'''
+	if len(mods):
+		bases = (*reversed(mods), base)
+		if name is None:
+			name = '_'.join(base.__name__ for base in bases)
+		return type(name, bases, {})
+	return base
+
+
+class Modifiable:
+	@classmethod
+	def inject_mods(cls, *mods, name=None):
+		'''
+		Mods should be types that are used to modify the cls. The order of the mods corresponds to the order
+		in which the cls is "modified", so for example:
+
+		```python
+
+		class A(Modifiable): pass
+		class B: pass
+		class C: pass
+
+		out = A.inject_mods(B, C)
+		assert out.mro() == [out, C, B, A, Modifiable, object]
+		assert out.__name__ == 'C_B_A' # default name
+		```
+		'''
+		return inject_modifiers(cls, *mods, name=name)
 
 
 # class old_auto_init(capturable_method):
