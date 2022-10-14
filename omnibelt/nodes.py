@@ -477,7 +477,7 @@ class StampedNode(OmniNode):
 
 
 class LocalNode(PayloadNode):
-	DefaultNode = None
+	# DefaultNode = None
 	ChildrenStructure = None
 
 	class empty_value: pass
@@ -869,7 +869,7 @@ class AddressNode(LocalNode):
 
 class AutoAddressNode(AddressNode):
 	def _auto_create_child(self, key):
-		return self.set(key, self.DefaultNode(parent=self))
+		return self.set(key, self.__class__(parent=self))
 
 	def _evaluate_address(self, addr: str, auto_create: bool = False) -> Tuple['AddressNode', str]:
 		try:
