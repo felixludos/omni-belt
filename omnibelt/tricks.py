@@ -557,8 +557,35 @@ class smartproperty(property):
 
 	@staticmethod
 	def _get_cache_info(base, name):
-		# (f'__cached_{self.name}' if isinstance(base, type) else self.name)
 		return getattr(base, '__dict__', None), name
+
+	def create_value(self, base, owner=None):
+		if self.fget is None:
+			raise self.MissingValueError(base, self.name)
+		try:
+			return self._call_descriptor(self.fget, base, owner)
+		except self.GetterFailedError:
+			raise self.MissingValueError(base, self.name) from None
+
+	def _set_cached_value(self, base, name, value):
+		cache, name = self._get_cache_info(base, name)
+		if cache is None or name is None:
+			raise AttributeError(f'cannot cache attribute {self.name} of {base}')
+		if cache is not None:
+			cache[name] = value
+
+	def _get_cached_value(self, base):
+		cache, name = self._get_cache_info(base, self.name)
+		if cache is None:
+			return self.unknown
+		return cache.get(name, self.unknown)
+
+	def _clear_cache(self, base):
+		cache, name = self._get_cache_info(base, self.name)
+		if cache is None or name is None:
+			raise AttributeError(f'cannot reset attribute {self.name} of {base}')
+		if cache is not None:
+			cache.pop(name, None)
 
 	def get_value(self, base, owner=None): # TODO: maybe make thread-safe by using a lock
 		'''
@@ -572,32 +599,21 @@ class smartproperty(property):
 			value of property
 
 		'''
-		cache, key = self._get_cache_info(base, self.name)
-		if cache is not None and key is not None and key in cache:
-			return cache[key]
-		if self.fget is None:
-			raise self.MissingValueError(base, self.name)
-		try:
-			return self._call_descriptor(self.fget, base, owner)
-		except self.GetterFailedError:
-			raise self.MissingValueError(base, self.name) from None
+		value = self._get_cached_value(base)
+		if value is self.unknown:
+			value = self.create_value(base, owner)
+		return value
 		
 	def update_value(self, base, value):
 		'''Try manually specified setter function, if that fails, then try to set value in cache'''
 		if self.fset is None:
-			cache, key = self._get_cache_info(base, self.name)
-			if cache is None or key is None:
-				raise AttributeError(f'cannot cache attribute {self.name} of {base}')
-			cache[key] = value
+			self._set_cached_value(base, self.name, value)
 		else:
 			return self._call_descriptor(self.fset, base, None, value)
 
 	def reset(self, base):
 		if self.fdel is None:
-			cache, key = self._get_cache_info(base, self.name)
-			if cache is None or key is None:
-				raise AttributeError(f'cannot reset attribute {self.name} of {base}')
-			cache.pop(key, None)
+			self._clear_cache(base)
 		else:
 			return self._call_descriptor(self.fdel, base, None)
 
@@ -609,31 +625,30 @@ class cachedproperty(smartproperty):
 		self.cache = cache
 		self.cached_value = self.unknown
 
-	def get_value(self, base, owner=None):
-		if base is self.src and self.cached_value is not self.unknown:
+	def _get_cached_value(self, base):
+		if base is self.src:
 			return self.cached_value
-		value = super().get_value(base, owner)
-		if self.cache:
-			if base is self.src:
-				self.cached_value = value
-			else:
-				cache, key = self._get_cache_info(base, self.name)
-				if cache is not None and key is not None:
-					cache[key] = value
-		return value
+		return super()._get_cached_value(base)
 
-	def update_value(self, base, value):
-		if self.fset is None and base is self.src:
+	def _set_cached_value(self, base, name, value):
+		if base is self.src:
 			self.cached_value = value
 		else:
-			super().update_value(base, value)
+			super()._set_cached_value(base, name, value)
 
-	def reset(self, base):
-		if self.fdel is None and base is self.src:
+	def _clear_cache(self, base):
+		if base is self.src:
 			self.cached_value = self.unknown
 		else:
-			super().reset(base)
+			super()._clear_cache(base)
 
+	def get_value(self, base, owner=None):
+		value = self._get_cached_value(base)
+		if value is self.unknown:
+			value = self.create_value(base, owner)
+			if self.cache:
+				self._set_cached_value(base, self.name, value)
+		return value
 
 
 class autoproperty(cachedproperty): # agnostic to whether it is a class or instance attribute
@@ -747,9 +762,9 @@ class defaultproperty(smartproperty):
 			return None, default  # no fget provided (optionally can be added with __call__)
 		return fget, default  # fget was specified as keyword argument
 
-	def get_value(self, base, owner=None): # TODO: maybe make thread-safe by using a lock
+	def create_value(self, base, owner=None): # TODO: maybe make thread-safe by using a lock
 		try:
-			return super().get_value(base, owner)
+			return super().create_value(base, owner)
 		except self.MissingValueError:
 			if self.default is self.unknown:
 				raise

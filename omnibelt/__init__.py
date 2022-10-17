@@ -30,6 +30,7 @@ from .packing import save_pack, load_pack, json_pack, json_unpack
 from .transactions import Transactionable, AbortTransaction
 from .wrappers import ObjectWrapper
 from .nodes import OmniNode, OmniStructure, TreeNode, LocalNode
+from .viz import printc, bcolors, colorize
 
 # from .wrappers import ObjectWrapper, Array # causes an error if required libs aren't already installed
 # try:
