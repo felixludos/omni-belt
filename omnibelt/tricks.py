@@ -327,7 +327,7 @@ class method_wrapper(nested_method_decorator):
 
 class auto_methods(capturable_method):
 	# _auto_methods = None
-	def __init_subclass__(cls, auto_methods: Optional[Union[str, Sequence[str]]] = (),
+	def __init_subclass__(cls, auto_methods: Optional[Union[str, Sequence[str]]] = (), wrap_existing: bool = False,
 	                      inheritable_auto_methods: Optional[Union[str, Sequence[str]]] = (), **kwargs):
 		super().__init_subclass__(**kwargs)
 
@@ -340,8 +340,7 @@ class auto_methods(capturable_method):
 		cls._auto_methods.update((method, False) for method in auto_methods)
 
 		for method in cls._auto_methods:
-			if method in cls.__dict__:
-				print(method, getattr(cls, method))
+			if wrap_existing or method in cls.__dict__:
 				setattr(cls, method, captured_method(inspect.getattr_static(cls, method)).setup(cls, method))
 
 
