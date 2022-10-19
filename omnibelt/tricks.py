@@ -563,6 +563,12 @@ class smartproperty(property):
 			raise self.MissingValueError(base, self.name) from None
 
 	def _set_cached_value(self, base, value):
+		if not isinstance(base, type):
+			setter = getattr(base, '__setattr__', None)
+			if setter is not None:
+				return setter(self.name, value)
+		else:
+			raise NotImplementedError
 		cache = getattr(base, '__dict__', None)
 		if cache is None or self.name is None:
 			raise AttributeError(f'cannot cache attribute {self.name} of {base}')
@@ -570,12 +576,24 @@ class smartproperty(property):
 			cache[self.name] = value
 
 	def _get_cached_value(self, base):
+		if not isinstance(base, type):
+			getter = getattr(base, '__getattr__', None)
+			if getter is not None:
+				return getter(self.name)
+		else:
+			raise NotImplementedError
 		cache = getattr(base, '__dict__', None)
 		if cache is None:
 			return self.unknown
 		return cache.get(self.name, self.unknown)
 
 	def _clear_cache(self, base):
+		if not isinstance(base, type):
+			deleter = getattr(base, '__delattr__', None)
+			if deleter is not None:
+				return deleter(self.name)
+		else:
+			raise NotImplementedError
 		cache = getattr(base, '__dict__', None)
 		if cache is None or self.name is None:
 			raise AttributeError(f'cannot reset attribute {self.name} of {base}')
