@@ -20,7 +20,7 @@ from .farming import WorkerPool
 from .exporting import export, load_export, set_export_manager, ExportManager, Exporter, Exportable
 from .tricks import self_aware, clsdec, innerchild, method_wrapper, ClassDescriptable, classdescriptor, \
 	extract_function_signature, capturable_super, captured_super, auto_init, dynamic_capture, \
-	smartproperty, cachedproperty, autoproperty, referenceproperty, defaultproperty, TrackSmart, Tracer, \
+	smartproperty, autoproperty, referenceproperty, defaultproperty, TrackSmart, Tracer, \
 	Modifiable, inject_modifiers
 
 from .packing import Packable, primitive, Primitive, SERIALIZABLE, JSONABLE, pack, unpack

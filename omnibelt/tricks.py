@@ -143,13 +143,13 @@ class method_binder(nested_method_decorator):
 				instance: Instance where the method is called
 				is_static: Whether the method is a staticmethod or classmethod
 			'''
-			if is_static is None:
-				is_static = fn in {staticmethod, classmethod}
+			# if is_static is None:
+			# 	is_static = fn in {staticmethod, classmethod}
 			self.fn = fn
 			self.instance = instance
 			self.src = src
 			self.owner = owner
-			self.is_static = is_static
+			# self.is_static = is_static
 			
 
 		def __repr__(self):
@@ -157,11 +157,14 @@ class method_binder(nested_method_decorator):
 				else f'<future_method {self.fn.__name__} of {self.owner.__name__} bound to {self.instance}>'
 
 		def __call__(self, *args: Any, **kwargs: Any) -> Any:
-			if not self.is_static and self.instance is None:
-				assert len(args), 'no instance to call method on'
-				self.instance = args[0]
-				args = args[1:]
-			return self.fn_call(self.fn, None if self.is_static else self.instance, *args, **kwargs)
+			# if not self.is_static and self.instance is None:
+			# 	assert len(args), 'no instance to call method on'
+			# 	self.instance = args[0]
+			# 	args = args[1:]
+			return self.fn_call(self.fn,
+			                    # None if self.is_static else
+			                    self.instance,
+			                    *args, **kwargs)
 
 		@staticmethod
 		def fn_call(fn: Callable, instance: Any, *args, **kwargs) -> Any:
@@ -172,8 +175,8 @@ class method_binder(nested_method_decorator):
 		return super()._setup(owner, name)
 	
 	def package(self, fn: Callable, instance: Any, owner: Type) -> future_method:
-		return self.future_method(self.src, fn, owner, instance,
-		                          is_static=isinstance(self.fn, (staticmethod, classmethod)))
+		return self.future_method(self.src, fn, owner, instance,)
+		                          # is_static=isinstance(self.fn, (staticmethod, classmethod)))
 
 
 
@@ -460,16 +463,27 @@ class simple_dynamic_capture(dynamic_capture):
 		                 fn, *method_names)
 
 
-from functools import cached_property
-# from .typing import agnosticproperty
 
-class smartproperty(property):
+
+class smartproperty:
 	unknown = object()
 
-	def __init__(self, fget=None, *, name=None, src=None, **kwargs):
-		super().__init__(fget=fget, **kwargs)
+	def __init__(self, *, name=None, src=None, cache=False, fget=None, fset=None, fdel=None, doc=None):
+		# super().__init__(fget=fget, **kwargs)
 		self.name = name
 		self.src = src
+
+		self.cache = cache
+		self.cached_value = self.unknown
+
+		self.fget = fget
+		self.fset = fset
+		self.fdel = fdel
+		self.doc = doc
+
+		self._during_getter = False
+		self._during_setter = False
+		self._during_deleter = False
 
 	def copy(self, src=unspecified_argument, name=unspecified_argument,
 	         default=unspecified_argument, cache=unspecified_argument,
@@ -563,42 +577,70 @@ class smartproperty(property):
 			raise self.MissingValueError(base, self.name) from None
 
 	def _set_cached_value(self, base, value):
-		if not isinstance(base, type):
-			setter = getattr(base, '__setattr__', None)
-			if setter is not None:
-				return setter(self.name, value)
-		else:
+		if base is self.src:
+			self.cached_value = value
+			return
+		elif isinstance(base, type):
 			raise NotImplementedError
-		cache = getattr(base, '__dict__', None)
-		if cache is None or self.name is None:
-			raise AttributeError(f'cannot cache attribute {self.name} of {base}')
-		if cache is not None:
-			cache[self.name] = value
+
+		setter = getattr(base, '__setattr__', None)
+		if setter is not None and not self._during_setter:
+			self._during_setter = True
+			setter(self.name, value)
+			self._during_setter = False
+		else:
+			# raise AttributeError(f'cannot cache attribute {self.name} of {base}')
+			# raise NotImplementedError
+			cache = getattr(base, '__dict__', None)
+			if cache is None or self.name is None:
+				raise AttributeError(f'cannot cache attribute {self.name} of {base}')
+			if cache is not None:
+				cache[self.name] = value
 
 	def _get_cached_value(self, base):
-		if not isinstance(base, type):
-			getter = getattr(base, '__getattr__', None)
-			if getter is not None:
-				return getter(self.name)
-		else:
+		if base is self.src:
+			return self.cached_value
+		elif isinstance(base, type):
 			raise NotImplementedError
+
+		getter = getattr(base, '__getattr__', None)
+		if getter is not None and not self._during_getter:
+			self._during_getter = True
+			try:
+				value = getter(self.name)
+			except AttributeError:
+				pass
+			else:
+				return value
+			finally:
+				self._during_getter = False
+
 		cache = getattr(base, '__dict__', None)
 		if cache is None:
 			return self.unknown
 		return cache.get(self.name, self.unknown)
 
 	def _clear_cache(self, base):
-		if not isinstance(base, type):
-			deleter = getattr(base, '__delattr__', None)
-			if deleter is not None:
-				return deleter(self.name)
-		else:
+		if base is self.src:
+			self.cached_value = self.unknown
+			return
+		elif isinstance(base, type):
 			raise NotImplementedError
-		cache = getattr(base, '__dict__', None)
-		if cache is None or self.name is None:
-			raise AttributeError(f'cannot reset attribute {self.name} of {base}')
-		if cache is not None:
-			cache.pop(self.name, None)
+
+		deleter = getattr(base, '__delattr__', None)
+		if deleter is not None and not self._during_deleter:
+			self._during_deleter = True
+			deleter(self.name)
+			self._during_deleter = False
+			return
+		else:
+			# raise AttributeError(f'cannot reset attribute {self.name} of {base}')
+			# raise NotImplementedError
+			cache = getattr(base, '__dict__', None)
+			if cache is None or self.name is None:
+				raise AttributeError(f'cannot reset attribute {self.name} of {base}')
+			if cache is not None:
+				cache.pop(self.name, None)
 
 	def get_value(self, base, owner=None): # TODO: maybe make thread-safe by using a lock
 		'''
@@ -615,6 +657,8 @@ class smartproperty(property):
 		value = self._get_cached_value(base)
 		if value is self.unknown:
 			value = self.create_value(base, owner)
+			if self.cache:
+				self._set_cached_value(base, value)
 		return value
 		
 	def update_value(self, base, value):
@@ -632,39 +676,39 @@ class smartproperty(property):
 
 
 
-class cachedproperty(smartproperty):
-	def __init__(self, fget: Callable[[], Any] = None, *, cache=False, **kwargs):
-		super().__init__(fget=fget, **kwargs)
-		self.cache = cache
-		self.cached_value = self.unknown
+# class cachedproperty(smartproperty):
+# 	def __init__(self, fget: Callable[[], Any] = None, *, cache=False, **kwargs):
+# 		super().__init__(fget=fget, **kwargs)
+# 		self.cache = cache
+# 		self.cached_value = self.unknown
+#
+# 	def _get_cached_value(self, base):
+# 		if base is self.src:
+# 			return self.cached_value
+# 		return super()._get_cached_value(base)
+#
+# 	def _set_cached_value(self, base, value):
+# 		if base is self.src:
+# 			self.cached_value = value
+# 		else:
+# 			super()._set_cached_value(base, value)
+#
+# 	def _clear_cache(self, base):
+# 		if base is self.src:
+# 			self.cached_value = self.unknown
+# 		else:
+# 			super()._clear_cache(base)
+#
+# 	def get_value(self, base, owner=None):
+# 		value = self._get_cached_value(base)
+# 		if value is self.unknown:
+# 			value = self.create_value(base, owner)
+# 			if self.cache:
+# 				self._set_cached_value(base, value)
+# 		return value
 
-	def _get_cached_value(self, base):
-		if base is self.src:
-			return self.cached_value
-		return super()._get_cached_value(base)
 
-	def _set_cached_value(self, base, name, value):
-		if base is self.src:
-			self.cached_value = value
-		else:
-			super()._set_cached_value(base, name, value)
-
-	def _clear_cache(self, base):
-		if base is self.src:
-			self.cached_value = self.unknown
-		else:
-			super()._clear_cache(base)
-
-	def get_value(self, base, owner=None):
-		value = self._get_cached_value(base)
-		if value is self.unknown:
-			value = self.create_value(base, owner)
-			if self.cache:
-				self._set_cached_value(base, self.name, value)
-		return value
-
-
-class autoproperty(cachedproperty): # agnostic to whether it is a class or instance attribute
+class autoproperty(smartproperty): # agnostic to whether it is a class or instance attribute
 	def _get_base(self, instance, owner=None):
 		return owner if instance is None else instance
 
@@ -1119,7 +1163,8 @@ def extract_function_signature(fn: Union[Callable, Type],
 					fixed_args.append(val)
 		elif p.kind == p.VAR_POSITIONAL:
 			if not allow_positional:
-				raise TypeError(f'Function {fn.__name__} has variable positional arguments ({n})')
+				# raise TypeError(f'Function {fn.__name__} has variable positional arguments ({n})')
+				continue
 			try:
 				if default_fn is None:
 					raise KeyError
