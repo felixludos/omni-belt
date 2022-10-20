@@ -550,7 +550,7 @@ class LocalNode(PayloadNode):
 
 	@property
 	def is_leaf(self):
-		for _ in self.children(keys=False, skip_empty=True):
+		for _ in self.children(skip_empty=True):
 			return False
 		return True
 
@@ -609,7 +609,7 @@ class LocalNode(PayloadNode):
 
 	def named_children(self, skip_empty=True):
 		for key, child in self._iterate_children():
-			if skip_empty and not child.has_payload:
+			if skip_empty and child.is_leaf and not child.has_payload:
 				continue
 			yield key, child
 
