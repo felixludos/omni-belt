@@ -1,5 +1,5 @@
 
-import numpy as np
+# import numpy as np
 
 from _util_test import get_adict
 from omnibelt import json_pack, json_unpack
@@ -32,12 +32,12 @@ from omnibelt import json_pack, json_unpack
 # 	assert repr(json_unpack(json_pack(x))) == repr(x)
 	
 
-def test_numpy_arrays():
-	x = np.random.randn(10)
-	p = json_pack(x)
-	c = json_unpack(p)
-	
-	assert (c-x).sum() == 0
+# def test_numpy_arrays():
+# 	x = np.random.randn(10)
+# 	p = json_pack(x)
+# 	c = json_unpack(p)
+#
+# 	assert (c-x).sum() == 0
 
 
 # def test_complex_array(): # TODO: not currently supported on all systems
