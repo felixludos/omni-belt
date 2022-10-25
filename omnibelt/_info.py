@@ -3,7 +3,7 @@
 name = 'omnibelt'
 long_name = 'omni-belt'
 
-version = '0.6.0'
+version = '0.6.1'
 url = 'https://github.com/felixludos/omni-belt'
 
 description = 'Universal python utilities'
