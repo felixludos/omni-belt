@@ -1,4 +1,7 @@
 
+from .typing import unspecified_argument
+
+
 class InitWall:
     def __init__(self, *args, _multi_inits=None, _req_args=(), _req_kwargs={}, **kwargs):
         if _multi_inits is None:
@@ -40,7 +43,25 @@ class Singleton(object):
 
 
 
+class Service:
+    _service_cls = None
+    _server_cls = None
+    def __init_subclass__(cls, use=False, server=unspecified_argument, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if server is unspecified_argument:
+            server = cls
+        if cls._service_cls is None:
+            cls._service_cls = server
+            cls._service_cls._server_cls = server
+        elif use:
+            cls._service_cls._server_cls = cls
 
+
+    def __new__(cls, *args, **kwargs):
+        if cls._service_cls is None:
+            return super().__new__(cls)
+        else:
+            return cls._service_cls._server_cls(*args, **kwargs)
 
 
 

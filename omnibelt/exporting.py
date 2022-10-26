@@ -319,11 +319,11 @@ class Exporter:
 	class ExportFailedError(ValueError): pass
 
 	@staticmethod
-	def _load_export(path: Union[Path, str], src: Type['ExportManager']) -> Any:
+	def _load_export(path: Path, src: Type['ExportManager']) -> Any:
 		raise NotImplementedError
 
 	@staticmethod
-	def _export_payload(payload: Any, path: Union[Path, str], src: Type['ExportManager']) -> Optional[Path]:
+	def _export_payload(payload: Any, path: Path, src: Type['ExportManager']) -> Optional[Path]:
 		raise NotImplementedError
 
 
