@@ -937,6 +937,12 @@ class Modifiable:
 		'''
 		return inject_modifiers(cls, *mods, name=name)
 
+	# @classmethod
+	# def __new_mod__(cls, mods, *args, **kwargs):
+	# 	if isinstance(mods, str):
+	# 		mods = (mods,)
+	# 	return cls.inject_mods(*mods)(*args, **kwargs)
+
 
 # class old_auto_init(capturable_method):
 # 	def __init_subclass__(cls, **kwargs):
