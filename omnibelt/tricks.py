@@ -464,6 +464,32 @@ class simple_dynamic_capture(dynamic_capture):
 
 
 
+class ClassHierarchy:
+	_class_hierarchy_root = None
+	_class_hierarchy_parent_ref = None
+	_class_hierarchy_parent = None
+	_class_hierarchy_address = ()
+	_class_hierarchy_children = None
+
+	def __init_subclass__(cls, ident=None, as_branch=False, new_hierarchy=None, **kwargs):
+		super().__init_subclass__(**kwargs)
+		if new_hierarchy is None:
+			new_hierarchy = cls._class_hierarchy_parent_ref is None
+		if new_hierarchy:
+			cls._class_hierarchy_root = cls
+			cls._class_hierarchy_parent = None
+			cls._class_hierarchy_parent_ref = cls
+			cls._class_hierarchy_children = OrderedDict()
+		else:
+			cls._class_hierarchy_parent = cls._class_hierarchy_parent_ref
+			if ident is not None:
+				cls._class_hierarchy_children[ident] = cls
+			if as_branch:
+				cls._class_hierarchy_parent_ref = cls
+				cls._class_hierarchy_children = OrderedDict()
+			cls._class_hierarchy_address = (*cls._class_hierarchy_address, as_branch)
+
+
 
 class smartproperty:
 	unknown = object()
