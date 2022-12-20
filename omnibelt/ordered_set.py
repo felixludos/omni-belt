@@ -339,8 +339,9 @@ class OrderedSet(MutableSet[T], Sequence[T]):
             index = self.map[key]
             del self.items[index]
             del self.map[key]
-            for i in range(index % len(self.items), len(self.items)):
-                self.map[self.items[i]] = i
+            if len(self.items):
+                for i in range(index % len(self.items), len(self.items)):
+                    self.map[self.items[i]] = i
 
     def clear(self) -> None:
         """

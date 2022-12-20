@@ -500,7 +500,7 @@ class smartproperty:
 		self.src = src
 
 		self.cache = cache
-		self.cached_value = self.unknown
+		self.cached_value = self.unknown # only for the class property
 
 		self.fget = fget
 		self.fset = fset
