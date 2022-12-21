@@ -156,6 +156,11 @@ class method_binder(nested_method_decorator):
 			return f'<future_method {self.fn.__name__} of {self.owner.__name__}>' if self.instance is None \
 				else f'<future_method {self.fn.__name__} of {self.owner.__name__} bound to {self.instance}>'
 
+		# def __get__(self, instance, owner):
+		# 	# if instance is None:
+		# 	# 	return self
+		# 	return self.fn.__get__(instance, owner)
+
 		def __call__(self, *args: Any, **kwargs: Any) -> Any:
 			# if not self.is_static and self.instance is None:
 			# 	assert len(args), 'no instance to call method on'
@@ -329,9 +334,11 @@ class method_wrapper(nested_method_decorator):
 
 
 class auto_methods(capturable_method):
-	# _auto_methods = None
+	_method_capturer = captured_method
+	_auto_wrap_mro_until = None
 	def __init_subclass__(cls, auto_methods: Optional[Union[str, Sequence[str]]] = (), wrap_existing: bool = False,
-	                      inheritable_auto_methods: Optional[Union[str, Sequence[str]]] = (), **kwargs):
+	                      inheritable_auto_methods: Optional[Union[str, Sequence[str]]] = (),
+	                      wrap_mro_until=None, **kwargs):
 		super().__init_subclass__(**kwargs)
 
 		existing = [method for method, inherit in getattr(cls, '_auto_methods', {}).items() if inherit]
@@ -344,8 +351,22 @@ class auto_methods(capturable_method):
 
 		for method in cls._auto_methods:
 			if wrap_existing or method in cls.__dict__:
-				setattr(cls, method, captured_method(inspect.getattr_static(cls, method)).setup(cls, method))
-
+				fn = inspect.getattr_static(cls, method)
+				if not isinstance(fn, cls._method_capturer):
+					setattr(cls, method, cls._method_capturer(fn).setup(cls, method))
+		if wrap_mro_until is not None:
+			if wrap_mro_until is True:
+				wrap_mro_until = cls
+			cls._auto_wrap_mro_until = wrap_mro_until
+		if cls._auto_wrap_mro_until is not None and issubclass(cls, cls._auto_wrap_mro_until):
+			for parent in cls.mro():
+				if parent is cls._auto_wrap_mro_until:
+					break
+				if parent is not cls:
+					for method in cls._auto_methods:
+						fn = parent.__dict__.get(method, None)
+						if fn is not None and not isinstance(fn, cls._method_capturer):
+							setattr(parent, method, cls._method_capturer(fn).setup(parent, method))
 
 	@classmethod
 	def _auto_method_call(cls, self, src: Type, method: Callable, args: Tuple, kwargs: Dict[str, Any]) -> None:
@@ -354,7 +375,7 @@ class auto_methods(capturable_method):
 	@classmethod
 	def captured_method_call(cls, self, src: Type['auto_methods'], fn: Callable,
 	                         args: Tuple, kwargs: Dict[str, Any]) -> Any:
-		if getattr(src, '_auto_methods', None) is not None and fn.__name__ in src._auto_methods:
+		if getattr(cls, '_auto_methods', None) is not None and getattr(fn, '__name__', None) in cls._auto_methods:
 			return cls._auto_method_call(self, src, fn, args, kwargs)
 		return super().captured_method_call(self, src, fn, args, kwargs)
 
