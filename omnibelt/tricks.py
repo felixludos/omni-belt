@@ -644,6 +644,9 @@ class smartproperty:
 			if cache is not None:
 				cache[self.name] = value
 
+	def is_cached(self, base):
+		return self._get_cached_value(base) is not self.unknown
+
 	def _get_cached_value(self, base):
 		if base is self.src:
 			return self.cached_value
@@ -866,13 +869,22 @@ class defaultproperty(smartproperty):
 			return None, default  # no fget provided (optionally can be added with __call__)
 		return fget, default  # fget was specified as keyword argument
 
-	def create_value(self, base, owner=None): # TODO: maybe make thread-safe by using a lock
+
+	def get_value(self, base, owner=None): # TODO: maybe make thread-safe by using a lock
 		try:
-			return super().create_value(base, owner)
+			return super().get_value(base, owner)
 		except self.MissingValueError:
 			if self.default is self.unknown:
 				raise
 			return self.default
+
+	# def create_value(self, base, owner=None): # TODO: maybe make thread-safe by using a lock
+	# 	try:
+	# 		return super().create_value(base, owner)
+	# 	except self.MissingValueError:
+	# 		if self.default is self.unknown:
+	# 			raise
+	# 		return self.default
 
 
 from .utils import split_dict
@@ -1177,7 +1189,7 @@ def collect_init_kwargs(typ: Type, default: Any = Parameter.empty, *, end_type: 
 def extract_function_signature(fn: Union[Callable, Type],
                                args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None, *,
                                default_fn: Callable[[str, Any], Any] = None, include_missing: bool = False,
-                               allow_positional: bool = True) \
+                               allow_positional: bool = True, force_no_positional: bool = False) \
 		-> Union[Tuple[List[Any], Dict[str, Any], List[inspect.Parameter]],
 		         Tuple[List[Any], Dict[str, Any]],
 		         Dict[str, Any]]:
@@ -1199,7 +1211,7 @@ def extract_function_signature(fn: Union[Callable, Type],
 
 	for n, p in params.items():
 		if p.kind == p.POSITIONAL_ONLY:
-			if not allow_positional:
+			if not allow_positional or force_no_positional:
 				raise TypeError(f'Function {fn.__name__} has a positional only argument ({n})')
 			if arg_idx < len(args):
 				fixed_args.append(args[arg_idx])
@@ -1215,9 +1227,9 @@ def extract_function_signature(fn: Union[Callable, Type],
 				else:
 					fixed_args.append(val)
 		elif p.kind == p.VAR_POSITIONAL:
-			if not allow_positional:
-				# raise TypeError(f'Function {fn.__name__} has variable positional arguments ({n})')
-				continue
+			if force_no_positional:
+				raise TypeError(f'Function {fn.__name__} has variable positional arguments ({n})')
+				# continue
 			try:
 				if default_fn is None:
 					raise KeyError
@@ -1241,10 +1253,10 @@ def extract_function_signature(fn: Union[Callable, Type],
 			if n in kwargs:
 				fixed_kwargs[n] = kwargs[n]
 			elif p.kind != p.KEYWORD_ONLY and arg_idx < len(args):
-				if allow_positional:
-					fixed_args.append(args[arg_idx])
-				else:
-					fixed_kwargs[n] = args[arg_idx]
+				# if allow_positional: # Note: removing this to prefer keyword arguments over positional arguments
+				# 	fixed_args.append(args[arg_idx])
+				# else:
+				fixed_kwargs[n] = args[arg_idx]
 				arg_idx += 1
 			else:
 				try:
