@@ -742,6 +742,49 @@ class DenseNode(LocalNode):
 		self._children.extend(self.from_raw(val) for val in vals)
 
 
+from indexed import IndexedOrderedDict
+
+class IndexedSparseNode(LocalNode):
+	ChildrenStructure = IndexedOrderedDict
+	_python_structure = OrderedDict
+
+	def _get(self, addr: Hashable) -> LocalNode:
+		if isinstance(addr, int):
+			return self._children.values()[addr]
+		try:
+			return self._children[addr]
+		except KeyError:
+			raise self._MissingKey(addr)
+
+	def _set(self, addr: Hashable, node: LocalNode):
+		if isinstance(addr, int):
+			assert -len(self._children) <= addr < len(self._children), f'Index {addr} out of range'
+			addr = self._children.keys()[addr]
+		self._children[addr] = node
+
+	def _remove(self, addr: Hashable):
+		if isinstance(addr, int):
+			assert -len(self._children) <= addr < len(self._children), f'Index {addr} out of range'
+			addr = self._children.keys()[addr]
+		del self._children[addr]
+
+	def _has(self, addr: Hashable):
+		if isinstance(addr, int):
+			return -len(self._children) <= addr < len(self._children)
+		return addr in self._children
+
+	def _num_children(self):
+		return len(self._children)
+
+	def _iterate_children(self):
+		yield from self._children.items()
+
+	def to_python(self):
+		return self._python_structure((key, value.payload) for key, value in self._children.items())
+
+	def _default_payload(self):
+		return self.to_python()
+
 
 class TreeNode(LocalNode):
 	DefaultNode: Type['TreeNode'] = SparseNode

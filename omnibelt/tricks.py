@@ -1189,7 +1189,7 @@ def collect_init_kwargs(typ: Type, default: Any = Parameter.empty, *, end_type: 
 def extract_function_signature(fn: Union[Callable, Type],
                                args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None, *,
                                default_fn: Callable[[str, Any], Any] = None, include_missing: bool = False,
-                               allow_positional: bool = True, force_no_positional: bool = False) \
+                               allow_positional: bool = True, force_no_positional: bool = False, skip_first=None) \
 		-> Union[Tuple[List[Any], Dict[str, Any], List[inspect.Parameter]],
 		         Tuple[List[Any], Dict[str, Any]],
 		         Dict[str, Any]]:
@@ -1200,9 +1200,13 @@ def extract_function_signature(fn: Union[Callable, Type],
 
 	if isinstance(fn, type):
 		fn = fn.__init__
+		skip_first = skip_first is not False
 
 	params = inspect.signature(fn).parameters
-	
+	if skip_first:
+		params = list(params.values())[1:]
+		params = {param.name: param for param in params}
+
 	arg_idx = 0
 	fixed_args = []
 	fixed_kwargs = {}
