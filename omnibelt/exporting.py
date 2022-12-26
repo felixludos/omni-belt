@@ -81,22 +81,40 @@ class ExportManager:
 
 
 	@classmethod
+	def _related_fmts_by_type(cls, typ):
+		options = [base for base in reversed(cls._export_fmt_types) if issubclass(typ, base)]
+		history = list(typ.mro())
+		for typ in sorted(options, key=lambda t: history.index(t)):
+			yield from cls._export_fmt_types[typ]
+
+	@classmethod
+	def _related_fmts_by_path(cls, path):
+		suffixes = path.suffixes
+		if len(suffixes) == 0:
+			suffixes = ['']
+		for i in range(len(suffixes)):
+			suffix = ''.join(suffixes[i:])
+			if suffix in cls._export_fmt_exts:
+				yield from cls._export_fmt_exts[suffix]
+
+	@classmethod
 	def resolve_fmt_from_obj(cls, obj: Any) -> Iterator[Type['Exporter']]:
 		missing = True
-		for fmt in chain(reversed(cls._export_fmt_types.get(type(obj), [])),
-		                 reversed(cls._export_fmts_head),
+		for fmt in chain(reversed(cls._export_fmts_head),
+		                 cls._related_fmts_by_type(type(obj)),
 		                 cls._export_fmts_tail):
 			if fmt.validate_export_obj(obj):
 				missing = False
 				yield fmt
+
 		if missing:
 			raise cls.UnknownExportData(obj)
 
 	@classmethod
 	def resolve_fmt_from_path(cls, path: Path) -> Iterator[Type['Exporter']]:
 		missing = True
-		for fmt in chain(reversed(cls._export_fmt_exts.get(path.suffix, [])),
-		                 reversed(cls._export_fmts_head),
+		for fmt in chain(reversed(cls._export_fmts_head),
+		                 cls._related_fmts_by_path(path), # TODO: maybe check for multi suffixes
 		                 cls._export_fmts_tail):
 			if fmt.validate_export_path(path):
 				missing = False
@@ -106,10 +124,14 @@ class ExportManager:
 			raise cls.UnknownExportPath(path)
 
 	@classmethod
-	def resolve_fmt(cls, fmt: Union[str, Type['Exporter']]) -> Iterator[Type['Exporter']]:
-		if issubclass(fmt, Exporter):
-			yield fmt
+	def resolve_fmt(cls, fmt: Union[str, Type, Type['Exporter']]) -> Iterator[Type['Exporter']]:
+		if isinstance(fmt, type):
+			if issubclass(fmt, Exporter):
+				yield fmt
+			else:
+				yield from cls._related_fmts_by_type(fmt)
 		else:
+			assert isinstance(fmt, str), f'{fmt!r}'
 			try:
 				yield from cls.resolve_fmt_from_path(Path(f'null.{fmt}' if len(fmt) else 'null'))
 			except cls.UnknownExportPath:
@@ -157,10 +179,19 @@ class ExportManager:
 	           fmt: Optional[Union[str, Type['Exporter']]] = None, path: Optional[Union[str, Path]] = None,
 	           **kwargs) -> Path:
 		assert path is not None or name is not None, f'Must provide either a path or a name to export: {payload}'
+		if root is None and path is None and isinstance(name, Path):
+			path = name
+			name = None
 		if root is not None:
 			root = Path(root)
 
-		fmts = cls.resolve_fmt_from_obj(payload) if fmt is None else cls.resolve_fmt(fmt)
+		if fmt is not None:
+			fmts = cls.resolve_fmt(fmt)
+		# elif path is not None: # TODO: payload exporter has to figure out what to do if the extension is different
+		# 	fmts = cls.resolve_fmt_from_path(Path(path))
+		else:
+			fmts = cls.resolve_fmt_from_obj(payload)
+
 		for fmt in fmts:
 			dest = fmt.create_export_path(name=name, root=root, payload=payload) if path is None else Path(path)
 			try:
@@ -174,6 +205,9 @@ class ExportManager:
 	def load_export(cls, name: Optional[str] = None, root: Optional[Union[str, Path]] = None, *,
 	                fmt: Optional[Union[str, Type['Exporter']]] = None, path: Optional[Union[str, Path]] = None,
 	                **kwargs) -> Any:
+		if root is None and path is None and isinstance(name, Path):
+			path = name
+			name = None
 		if root is not None:
 			root = Path(root)
 
@@ -260,9 +294,10 @@ class Exporter:
 
 	@classmethod
 	def validate_export_path(cls, path: Path) -> bool:
-		suffix = path.suffix
+		suffix = ''.join(path.suffixes)
 		options = getattr(cls, '_my_export_extensions', None)
-		return options is not None and len(suffix) and suffix[1:] in options
+		return options is not None and len(suffix) and (suffix in options
+		                                                or (suffix.startswith('.') and suffix[1:] in options))
 
 	
 	def __init_subclass__(cls, extensions: Optional[Union[str, Sequence[str]]] = None,
@@ -293,17 +328,24 @@ class Exporter:
 
 	@classmethod
 	def load_export(cls, name: Optional[str] = None, root: Optional[Union[Path, str]] = None, *,
-	                path: Optional[Union[str, Path]] = None, manager: Optional['ExportManager'] = None) -> Any:
+	                path: Optional[Union[str, Path]] = None, manager: Optional['ExportManager'] = None,
+	                fmt: Optional[Union[str, Type['Exporter']]] = unspecified_argument) -> Any:
 		if manager is None:
 			manager = getattr(cls, '_my_export_manager', _current_export_manager)
-		return manager.load_export(name=name, root=root, path=path, fmt=cls)
+		if fmt is unspecified_argument:
+			fmt = cls
+		return manager.load_export(name=name, root=root, path=path, fmt=fmt)
 
 	@classmethod
 	def export(cls, payload, name: Optional[str] = None, root: Optional[Union[str, Path]] = None, *,
-	           path: Optional[Union[str, Path]] = None, manager: Optional['ExportManager'] = None) -> Optional[Path]:
+	           path: Optional[Union[str, Path]] = None, manager: Optional['ExportManager'] = None,
+	           fmt: Optional[Union[str, Type['Exporter']]] = unspecified_argument) -> Optional[Path]:
 		if manager is None:
 			manager = getattr(cls, '_my_export_manager', _current_export_manager)
-		return manager.export(payload, name=name, root=root, path=path, fmt=cls)
+		if fmt is unspecified_argument:
+			fmt = cls
+		return manager.export(payload, name=name, root=root, path=path, fmt=fmt)
+
 
 	@classmethod
 	def create_export_path(cls, name: str, root: Optional[Union[Path, str]], *,

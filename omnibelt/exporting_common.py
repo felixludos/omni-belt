@@ -72,7 +72,7 @@ class TomlExport(CollectiveExporter, extensions=['.toml', '.tml']):
 
 
 
-class StrExport(SelectiveExporter, types=str, extensions='.txt'):
+class StrExport(SelectiveExporter, types=str, extensions=['.txt', '.str']):
 	@staticmethod
 	def _load_export(path: Union[Path, str], src: Type[ExportManager]) -> str:
 		return load_txt(path)
