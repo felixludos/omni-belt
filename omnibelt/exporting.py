@@ -176,7 +176,7 @@ class ExportManager:
 
 	@classmethod
 	def export(cls, payload: Any, name: Optional[str] = None, root: Optional[Union[str, Path]] = None,
-	           fmt: Optional[Union[str, Type['Exporter']]] = None, path: Optional[Union[str, Path]] = None,
+	           fmt: Optional[Union[str, Type, Type['Exporter']]] = None, path: Optional[Union[str, Path]] = None,
 	           **kwargs) -> Path:
 		assert path is not None or name is not None, f'Must provide either a path or a name to export: {payload}'
 		if root is None and path is None and isinstance(name, Path):
