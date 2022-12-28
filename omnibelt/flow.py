@@ -54,7 +54,7 @@ class cwd:
 
 
 
-def _filter_local(path, modules):
+def filter_local_modules(path, modules):
 	if path is not None:# and isinstance(path, Path):
 		for name, module in modules.items():
 			loc = getattr(module, '__file__', None)
@@ -104,7 +104,7 @@ def include_modules(*modules: str, root=None, allow_local=False):
 				world.update(new.keys())
 
 	if not allow_local and root is not None:
-		for n, m in _filter_local(root, all_new):
+		for n, m in filter_local_modules(root, all_new):
 			del sys.modules[n]
 
 	return loaded
