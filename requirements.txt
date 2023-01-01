@@ -1,6 +1,5 @@
 pyyaml
 dill
-c3linearize
 wrapt>=1.11.2
 cryptography>=2.7
 numpy>=1.14

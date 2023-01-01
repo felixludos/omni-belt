@@ -5,7 +5,6 @@ from .basic_containers import adict, tlist
 
 
 
-
 class TreeSpace(adict):
 	'''
 	Namespace - like a dictionary but where keys can be accessed as attributes, and if not found will create new NS

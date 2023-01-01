@@ -22,7 +22,7 @@ try:
 	with open(os.path.join(os.path.abspath(os.path.dirname(os.path.dirname(__file__))), 'requirements.txt'), 'r') as f:
 		install_requires = f.readlines()
 except:
-	install_requires = ['pyyaml', 'c3linearize', 'wrapt', 'cryptography']
+	install_requires = ['pyyaml', 'wrapt', 'cryptography']
 del os
 
 
