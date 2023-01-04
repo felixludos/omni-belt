@@ -1,6 +1,6 @@
 pyyaml
 dill
 wrapt==1.11.2
-cryptography==2.7
+cryptography==3.3.2
 numpy>=1.14
 indexed==1.3.0
