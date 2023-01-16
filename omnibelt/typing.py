@@ -32,7 +32,7 @@ class agnosticproperty(property):
 			instance = owner
 		return super().__get__(instance, owner)
 
-	def getter(self, fget: Callable[[Any], Any]) -> property:
+	def getter(self, fget: Callable[[Any], Any]) -> 'agnosticproperty':
 		return type(self)(fget, self.fset, self.fdel, self.__doc__)
 
 	def setter(self, fset: Callable[[Any, Any], None]) -> 'agnosticproperty':
