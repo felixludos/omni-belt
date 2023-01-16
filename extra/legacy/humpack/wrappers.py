@@ -2,7 +2,8 @@
 try:
 	import numpy as np
 except:
-	print('No numpy found') # use logging instead
+	# print('No numpy found') # use logging instead
+	pass
 
 from wrapt import ObjectProxy
 

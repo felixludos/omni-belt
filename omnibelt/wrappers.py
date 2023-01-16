@@ -218,7 +218,8 @@ try:
 
 
 except ImportError:
-	print('WARNING: unable to import numpy')
+	pass
+	# print('WARNING: unable to import numpy')
 
 
 
