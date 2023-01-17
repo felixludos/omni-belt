@@ -72,19 +72,19 @@ class Scope(metaclass=MROMeta):
 
 class method_decorator: # always replaces the function
 	def __init__(self, fn: Callable = None, *, enforce_setup: bool = True):
-		self.fn = fn
+		self._fn = fn
 		self._enforce_setup = enforce_setup
 		self._is_setup = False
 
 	def __call__(self, fn: Callable) -> 'method_decorator':
-		self.fn = fn
+		self._fn = fn
 		return self
 
 
 	def setup(self, owner: Type, name: Optional[str] = None) -> 'method_decorator':
 		self._is_setup = True
 		if name is None:
-			name = self.fn.__name__
+			name = self._fn.__name__
 		self._setup(owner, name)
 		return self
 
@@ -101,7 +101,7 @@ class method_decorator: # always replaces the function
 		if self._enforce_setup and not self._is_setup:
 			raise RuntimeError(f'{self.__class__.__name__} not setup properly '
 							   f'(call .setup(name, owner) or use as decorator)')
-		return self.package(self.fn, instance, owner)
+		return self.package(self._fn, instance, owner)
 
 
 	@staticmethod
@@ -114,7 +114,7 @@ class method_decorator: # always replaces the function
 
 class nested_method_decorator(method_decorator):
 	def _setup(self, owner: Type, name: str) -> None:
-		set_name = getattr(self.fn, '__set_name__', None)
+		set_name = getattr(self._fn, '__set_name__', None)
 		if set_name is not None:
 			set_name(owner, name)
 		return super()._setup(owner, name)
@@ -123,7 +123,7 @@ class nested_method_decorator(method_decorator):
 		if self._enforce_setup and not self._is_setup:
 			raise RuntimeError(f'{self.__class__.__name__} not setup properly '
 							   f'(call .setup(name, owner) or use as decorator)')
-		fn = self.fn
+		fn = self._fn
 		getter = getattr(fn, '__get__', None)
 		if getter is not None:
 			fn = getter(instance, owner)
@@ -230,7 +230,7 @@ class captured_super(method_binder):
 
 	def _setup(self, owner: Type, name: str) -> None:
 		self.name = name
-		if self.fn is not None:
+		if self._fn is not None:
 			setattr(self._parent_capturer, self.name, self.run_delegator(self.name))
 
 		# if self.fn is not None and self.fn.__closure__ is not None:
