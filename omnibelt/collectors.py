@@ -1,23 +1,18 @@
 from typing import Type, Optional, Union, Any, Callable, Sequence, Iterable, Iterator, Tuple, List, Dict, NamedTuple
 from collections import OrderedDict
-from .tricks import nested_method_decorator
+from functools import cached_property
+
+from .tricks import method_decorator, nested_method_decorator
+from .typing import agnostic
 
 
 
-class method_collector(nested_method_decorator):
-	_method_table_type = list
-
-	def __init__(self, *keys, replaces=None, **info):
-		fn = None
-		if len(keys) and callable(keys[0]): # if callable, assume it is the init function
-			fn, keys = keys
-
-		super().__init__(fn=fn)
-
-		self._keys = keys
-		self._replaces = replaces
-		self._info = info
-		self._methods = self._method_table_type()
+class method_propagator(nested_method_decorator):
+	def __init__(self, *args, **kwargs):
+		super().__init__()
+		self._method_name = None
+		self._args = args
+		self._kwargs = kwargs
 
 
 	def _setup(self, owner: Type, name: str) -> None:
@@ -25,39 +20,39 @@ class method_collector(nested_method_decorator):
 		self._name = name
 
 
-	def _make_collector(self, *args, **kwargs):
-		collector = self._collector(*args, **kwargs)
-		self._methods.append(collector)
-		return collector
+	def _make_propagator(self, name, **kwargs):
+		return self._propagator_reference(self, name, **kwargs)
 
 
-	class _collector:
-		class _collect_fn:
-			def __init__(self, owner):
-				self.owner = owner
-			def __call__(self, fn):
-				self.owner.fn = fn
-				return fn
+	_propagation_type = None
+	class _propagator_reference:
+		def __init__(self, originator, name, *, propagation_type=None, **kwargs):
+			if propagation_type is None:
+				propagation_type = originator._propagation_type
+			super().__init__(**kwargs)
+			self.name = name
+			self._propagator_type = propagation_type
 
-		def __init__(self, *args, **kwargs):
-			super().__init__(*args, **kwargs)
-			self.args = None
-			self.kwargs = None
-			self.fn = None
 
 		def __call__(self, *args, **kwargs):
-			self.args = args
-			self.kwargs = kwargs
-			return self._collect_fn(self)
+			sub = self._propagator_type(*args, **kwargs)
+			sub._method_name = self.name
+			return sub
 
 
 
-class universal_collector(method_collector):
+class propagated_method_propagator(method_propagator):
+	pass
+method_propagator._propagation_type = propagated_method_propagator
+
+
+
+class universal_propagator(method_propagator):
 	def __getattribute__(self, item):
 		try:
 			return super().__getattribute__(item)
 		except AttributeError:
-			return self._make_collector(item)
+			return self._make_propagator(item)
 
 
 
@@ -65,11 +60,11 @@ class AbstractCollectorTrigger:
 	@classmethod
 	def process_collectors(cls, owner: Type['Collectable']):
 		for key, val in owner.__dict__.items():
-			if isinstance(val, method_collector):
+			if isinstance(val, method_propagator):
 				setattr(owner, key, cls(owner, val))
 
 
-	def __init__(self, owner: Type['Collectable'], base: method_collector, **kwargs):
+	def __init__(self, owner: Type['Collectable'], base: method_propagator, **kwargs):
 		super().__init__(**kwargs)
 
 

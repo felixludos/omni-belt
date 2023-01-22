@@ -3,7 +3,7 @@ from .flow import safe_self_execute, multi_index, cwd, include_modules
 from .logging import get_printer, get_global_setting, get_global_settings, set_global_setting, set_printer_setting
 from .typing import primitives, unspecified_argument, join_classes, replace_class, \
 	duplicate_class, duplicate_func, duplicate_instance, wrap_class, mix_into, \
-	conditional_method, lambda_conditional_method, agnosticmethod, agnostic, agnosticproperty
+	conditional_method, lambda_conditional_method, agnosticmethod, agnostic, agnosticproperty, isiterable
 from .filesystem import create_dir, crawl, spawn_path_options, load_yaml, save_yaml, \
 	load_csv, load_tsv, load_json, save_json, monkey_patch, load_txt, save_txt, Persistent, HierarchyPersistent, \
 	load_pickle, save_pickle
@@ -22,7 +22,7 @@ from .tricks import self_aware, clsdec, innerchild, method_wrapper, ClassDescrip
 	extract_function_signature, capturable_super, captured_super, auto_init, dynamic_capture, \
 	smartproperty, autoproperty, referenceproperty, defaultproperty, TrackSmart, Tracer, \
 	Modifiable, inject_modifiers, ClassHierarchy
-from .collectors import method_collector, AbstractCollector, AbstractCollectorTrigger
+from .collectors import method_propagator, AbstractCollector, AbstractCollectorTrigger
 
 from .packing import Packable, primitive, Primitive, SERIALIZABLE, JSONABLE, pack, unpack
 from .packing import save_pack, load_pack, json_pack, json_unpack

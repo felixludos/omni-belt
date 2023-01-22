@@ -6,7 +6,6 @@ import inspect
 primitives = (str, int, float, bool, type(None))
 
 
-
 class unspecified_argument:
 	@staticmethod
 	def __repr__():
@@ -43,6 +42,18 @@ class agnosticproperty(property):
 
 
 agnosticmethod = agnostic
+
+
+def isiterable(obj):
+	try:
+		iter(obj)
+		return True
+	except TypeError:
+		return False
+
+
+
+
 
 # class agnosticmethod:
 # 	def __init__(self, fn):
