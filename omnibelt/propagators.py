@@ -29,6 +29,8 @@ class method_propagator(nested_method_decorator):
 		def __init__(self, originator, name, *, propagation_type=None, **kwargs):
 			if propagation_type is None:
 				propagation_type = originator._propagation_type
+				if propagation_type is None:
+					propagation_type = type(originator)
 			super().__init__(**kwargs)
 			self.name = name
 			self._propagator_type = propagation_type
@@ -41,12 +43,6 @@ class method_propagator(nested_method_decorator):
 
 
 
-class propagated_method_propagator(method_propagator):
-	pass
-method_propagator._propagation_type = propagated_method_propagator
-
-
-
 class universal_propagator(method_propagator):
 	def __getattribute__(self, item):
 		try:
@@ -56,16 +52,16 @@ class universal_propagator(method_propagator):
 
 
 
-class AbstractCollectorTrigger:
-	@classmethod
-	def process_collectors(cls, owner: Type['Collectable']):
-		for key, val in owner.__dict__.items():
-			if isinstance(val, method_propagator):
-				setattr(owner, key, cls(owner, val))
-
-
-	def __init__(self, owner: Type['Collectable'], base: method_propagator, **kwargs):
-		super().__init__(**kwargs)
+# class AbstractCollectorTrigger:
+# 	@classmethod
+# 	def process_collectors(cls, owner: Type['Collectable']):
+# 		for key, val in owner.__dict__.items():
+# 			if isinstance(val, method_propagator):
+# 				setattr(owner, key, cls(owner, val))
+#
+#
+# 	def __init__(self, owner: Type['Collectable'], base: method_propagator, **kwargs):
+# 		super().__init__(**kwargs)
 
 
 
@@ -82,20 +78,20 @@ class AbstractCollectorTrigger:
 
 
 
-class AbstractCollector:
-	@classmethod
-	def process_triggers(cls, source: Any, *,
-	                     triggers: Optional[Iterator[Tuple[str, AbstractCollectorTrigger]]] = None):
-		if triggers is None:
-			triggers = ((name, trigger) for name, trigger in type(source).__dict__.items()
-			            if isinstance(trigger, AbstractCollectorTrigger))
-		for name, trigger in triggers:
-			if isinstance(trigger, AbstractCollectorTrigger):
-				setattr(source, name, cls(source, trigger))
-
-
-	def __init__(self, source: Any, base: AbstractCollectorTrigger, **kwargs):
-		super().__init__(**kwargs)
+# class AbstractCollector:
+# 	@classmethod
+# 	def process_triggers(cls, source: Any, *,
+# 	                     triggers: Optional[Iterator[Tuple[str, AbstractCollectorTrigger]]] = None):
+# 		if triggers is None:
+# 			triggers = ((name, trigger) for name, trigger in type(source).__dict__.items()
+# 			            if isinstance(trigger, AbstractCollectorTrigger))
+# 		for name, trigger in triggers:
+# 			if isinstance(trigger, AbstractCollectorTrigger):
+# 				setattr(source, name, cls(source, trigger))
+#
+#
+# 	def __init__(self, source: Any, base: AbstractCollectorTrigger, **kwargs):
+# 		super().__init__(**kwargs)
 
 
 

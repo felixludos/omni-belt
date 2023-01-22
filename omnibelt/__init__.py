@@ -21,8 +21,8 @@ from .exporting import export, load_export, set_export_manager, ExportManager, E
 from .tricks import self_aware, clsdec, innerchild, method_wrapper, ClassDescriptable, classdescriptor, \
 	extract_function_signature, capturable_super, captured_super, auto_init, dynamic_capture, \
 	smartproperty, autoproperty, referenceproperty, defaultproperty, TrackSmart, Tracer, \
-	Modifiable, inject_modifiers, ClassHierarchy
-from .collectors import method_propagator, AbstractCollector, AbstractCollectorTrigger
+	Modifiable, inject_modifiers, ClassHierarchy, method_decorator
+from .propagators import method_propagator
 
 from .packing import Packable, primitive, Primitive, SERIALIZABLE, JSONABLE, pack, unpack
 from .packing import save_pack, load_pack, json_pack, json_unpack
