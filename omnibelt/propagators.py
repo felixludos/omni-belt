@@ -2,30 +2,33 @@ from typing import Type, Optional, Union, Any, Callable, Sequence, Iterable, Ite
 from collections import OrderedDict
 from functools import cached_property
 
-from .tricks import method_decorator, nested_method_decorator
+from .tricks import method_decorator
 from .typing import agnostic
 
 
 
-class method_propagator(nested_method_decorator):
+class method_propagator(method_decorator):
 	def __init__(self, *args, **kwargs):
 		super().__init__()
-		self._method_name = None
+		self._method_name = None # of decorator:  @method_propagator.method_name(*args, **kwargs) \n def name(...)
+		self._name = None # of decorated function
+		self._fn = None # decorated function
 		self._args = args
 		self._kwargs = kwargs
 
 
-	def _setup(self, owner: Type, name: str) -> None:
-		super()._setup(owner, name)
+	def _setup_decorator(self, owner: Type, name: str):
 		self._name = name
+		return super()._setup_decorator(owner, name)
 
 
-	def _make_propagator(self, name, **kwargs):
+	def _make_propagator(self, name, **kwargs): # subclasses should define methods which call this
 		return self._propagator_reference(self, name, **kwargs)
 
 
 	_propagation_type = None
 	class _propagator_reference:
+		'''Default propagator does not keep track of the originator'''
 		def __init__(self, originator, name, *, propagation_type=None, **kwargs):
 			if propagation_type is None:
 				propagation_type = originator._propagation_type

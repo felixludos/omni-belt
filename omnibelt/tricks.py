@@ -71,66 +71,85 @@ class Scope(metaclass=MROMeta):
 
 
 class method_decorator: # always replaces the function
-	def __init__(self, fn: Callable = None, *, enforce_setup: bool = True):
+	def __init__(self, fn: Callable = None, **kwargs):
+		super().__init__(**kwargs)
 		self._fn = fn
-		self._enforce_setup = enforce_setup
-		self._is_setup = False
+
 
 	def __call__(self, fn: Callable) -> 'method_decorator':
 		self._fn = fn
 		return self
 
 
-	def setup(self, owner: Type, name: Optional[str] = None) -> 'method_decorator':
-		self._is_setup = True
-		if name is None:
-			name = self._fn.__name__
-		self._setup(owner, name)
-		return self
-
-
-	def _setup(self, owner: Type, name: str) -> None:
-		pass
-
-
 	def __set_name__(self, owner: Type, name: str) -> None:
-		setattr(owner, name, self.setup(owner, name))
+		setattr(owner, name, self._setup_decorator(owner, name))
 
 
 	def __get__(self, instance: Any, owner: Type) -> Any:
-		if self._enforce_setup and not self._is_setup:
-			raise RuntimeError(f'{self.__class__.__name__} not setup properly '
-							   f'(call .setup(name, owner) or use as decorator)')
-		return self.package(self._fn, instance, owner)
+		return self._package_payload(self._fn, instance, owner)
+
+
+	def _setup_decorator(self, owner: Type, name: str) -> 'method_decorator':
+		return self
 
 
 	@staticmethod
-	def package(fn: Callable, instance: Any, owner: Type) -> Callable:
+	def _package_payload(fn: Callable, instance: Any, owner: Type) -> Callable:
 		getter = getattr(fn, '__get__', None)
 		if getter is not None and instance is not None:
 			return getter(instance, owner)
 		return fn
 
 
-class nested_method_decorator(method_decorator):
-	def _setup(self, owner: Type, name: str) -> None:
-		set_name = getattr(self._fn, '__set_name__', None)
-		if set_name is not None:
-			set_name(owner, name)
-		return super()._setup(owner, name)
 
-	def __get__(self, instance: Any, owner: Type) -> Any:
+class setup_method_decorator(method_decorator):
+	def __init__(self, fn: Callable = None, *, enforce_setup: bool = True, **kwargs):
+		super().__init__(fn, **kwargs)
+		self._enforce_setup = enforce_setup
+		self._is_setup = False
+
+
+	def _setup_decorator(self, owner: Type, name: str) -> 'method_decorator':
+		self._is_setup = True
+		return super()._setup_decorator(owner, name)
+
+
+	def _package_payload(self, fn: Callable, instance: Any, owner: Type) -> Callable:
 		if self._enforce_setup and not self._is_setup:
 			raise RuntimeError(f'{self.__class__.__name__} not setup properly '
 							   f'(call .setup(name, owner) or use as decorator)')
-		fn = self._fn
-		getter = getattr(fn, '__get__', None)
-		if getter is not None:
-			fn = getter(instance, owner)
-		return self.package(fn, instance, owner)
+		return super()._package_payload(fn, instance, owner)
 
 
-class method_binder(nested_method_decorator):
+
+class manual_method_decorator(method_decorator):
+	def setup(self, owner: Type, name: Optional[str] = None) -> 'method_decorator':
+		if name is None:
+			name = self._fn.__name__
+		return self._setup_decorator(owner, name)
+
+
+
+
+# class nested_method_decorator(method_decorator):
+# 	def _setup(self, owner: Type, name: str) -> None:
+# 		set_name = getattr(self._fn, '__set_name__', None)
+# 		if set_name is not None:
+# 			set_name(owner, name)
+# 		return super()._setup(owner, name)
+#
+# 	def __get__(self, instance: Any, owner: Type) -> Any:
+# 		if self._enforce_setup and not self._is_setup:
+# 			raise RuntimeError(f'{self.__class__.__name__} not setup properly '
+# 							   f'(call .setup(name, owner) or use as decorator)')
+# 		fn = self._fn
+# 		getter = getattr(fn, '__get__', None)
+# 		if getter is not None:
+# 			fn = getter(instance, owner)
+# 		return self.package(fn, instance, owner)
+
+
+class method_binder(method_decorator):
 	class future_method:
 		def __init__(self, src: Type, fn: Callable, owner: Type, instance: Any = None, *,
 		             is_static: Optional[bool] = None, **kwargs):
@@ -174,13 +193,15 @@ class method_binder(nested_method_decorator):
 		@staticmethod
 		def fn_call(fn: Callable, instance: Any, *args, **kwargs) -> Any:
 			return fn(*args, **kwargs)
-	
-	def _setup(self, owner: Type, name: str) -> None:
+
+
+	def _setup_decorator(self, owner: Type, name: str) -> None:
 		self.src = owner
-		return super()._setup(owner, name)
-	
-	def package(self, fn: Callable, instance: Any, owner: Type) -> future_method:
-		return self.future_method(self.src, fn, owner, instance,)
+		return super()._setup_decorator(owner, name)
+
+
+	def _package_payload(self, fn: Callable, instance: Any, owner: Type) -> future_method:
+		return self.future_method(self.src, fn, owner, instance)
 		                          # is_static=isinstance(self.fn, (staticmethod, classmethod)))
 
 
@@ -310,8 +331,8 @@ class captured(captured_super, captured_method):
 
 
 
-class method_wrapper(nested_method_decorator):
-	def package(self, fn: Callable, instance: Any, owner: Type = None) -> Callable:
+class method_wrapper(method_decorator):
+	def _package_payload(self, fn: Callable, instance: Any, owner: Type = None) -> Callable:
 		return self.method_application(self, fn, instance, owner)
 	
 	@staticmethod
