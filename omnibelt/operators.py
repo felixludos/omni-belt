@@ -1,6 +1,9 @@
-from typing import Any, Iterator, List, Optional, Tuple, Union, Callable
+from typing import Any, Iterator, List, Optional, Tuple, Union, Callable, Type
+import inspect
 
-from . import unspecified_argument
+from .typing import unspecified_argument
+from .tricks import method_decorator
+from .propagators import universal_propagator
 
 
 class AbstractOperational:
@@ -27,6 +30,7 @@ class AbstractOperator:
 
 	# class NoOperationFound(AttributeError):
 	# 	pass
+
 
 
 class SimpleOperator(AbstractOperator):
@@ -151,7 +155,7 @@ class OptionOperator(ConditionalOperator):
 
 
 
-class Operator(OptionOperator):
+class AliasOperator(OptionOperator):
 	def __init__(self, base, instance, *, aliases=None, **kwargs):
 		if aliases is None:
 			aliases = {}
@@ -164,18 +168,114 @@ class Operator(OptionOperator):
 
 
 
-class Operational(AbstractOperational):
-	Operator = Operator
+class _operation_base(method_decorator):
+	def __init__(self, fn: Callable = None, **kwargs):
+		super().__init__(fn, **kwargs)
+		self._attr_name = None
+
+
+	def _setup_decorator(self, owner: Type, name: str) -> 'method_decorator':
+		self._attr_name = name
+		return super()._setup_decorator(owner, name)
+
+
+	@property
+	def op_name(self):
+		raise NotImplementedError
+
+
+	@property
+	def attr_name(self):
+		return self._attr_name
+
+
+	@property
+	def fn(self):
+		return self._fn
+
+
+
+class operation_base(_operation_base):
+	# first argument of wrapped functions should always be the instance
+	def __init__(self, fn: Union[str, Callable], **kwargs):
+		if isinstance(fn, str):
+			fn, name = None, fn
+		else:
+			name = None
+		super().__init__(fn, **kwargs)
+		self._op_name = name
+
+
+	@property
+	def op_name(self):
+		if self._op_name is None:
+			return self._attr_name
+		return self._op_name
+
+
+
+class auto_operation(_operation_base, universal_propagator):
+	# first argument of wrapped functions should always be the instance
+
+	def __call__(self, fn):
+		raise ValueError('operation decorator does not take arguments')
+
+	@property
+	def op_name(self):
+		if self._method_name is None:
+			return self._attr_name
+		return self._method_name
+
+
+
+class SimpleOperational(AbstractOperational):
+	Operator = OptionOperator
 
 
 	def operations(self) -> Iterator[str]:
 		raise NotImplementedError
 
 
-	def _create_operator(self, instance, owner, operations=None):
+	def _create_operator(self, instance, owner, *, operations=None):
 		if operations is None:
 			operations = set(self.operations())
 		return self.Operator(self, instance, ops=operations)
+
+
+
+class Operationalized(AbstractOperational):
+	def as_operator(self, instance):
+		return self._create_operator(instance, type(instance))
+
+
+
+class DecoratedOperational(SimpleOperational):
+	Operator = AliasOperator
+
+	_known_operations = None
+	def __init_subclass__(cls, skip_inherit_operations=False, **kwargs):
+		super().__init_subclass__(**kwargs)
+		if '_known_operations' not in cls.__dict__:
+			ops = {}
+			if not skip_inherit_operations:
+				for base in reversed(cls.__bases__):  # O-N
+					ops.update(getattr(base, '_known_operations', {}))
+			fixes = {}
+			for name, attr in cls.__dict__.items(): # O-N
+				if isinstance(attr, operation_base):
+					ops[attr.op_name] = attr.attr_name
+					fixes[name] = attr.fn
+			cls.__dict__.update(fixes)
+			cls._known_operations = ops # O-N
+
+
+	def operations(self) -> Iterator[str]:
+		yield from self._known_operations.keys()
+
+
+	def _create_operator(self, instance, owner):
+		return self.Operator(self, instance, aliases=self._known_operations)
+
 
 
 

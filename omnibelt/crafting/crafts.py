@@ -35,6 +35,10 @@ class ProcessedCrafts(AbstractCrafts): # container for crafts
 		self._crafts = crafts
 
 
+	def crafts(self) -> Iterator[AbstractCraft]:
+		yield from self._crafts
+
+
 
 class SeamlessCrafts(ProcessedCrafts):
 	def _extract_craft_items(self, owner: Type[AbstractCrafty]) -> Iterator[AbstractCraft]:
@@ -45,7 +49,12 @@ class SeamlessCrafts(ProcessedCrafts):
 				first = next(items)
 				if isinstance(first, AwareCraft):
 					content = first.static_content
-					fixes[key] = first if content is None else content
+					if content is None:
+						fixes[key] = first
+					else:
+						first.add_top_level_key(key)
+						fixes[key] = content
+
 				yield first
 				yield from items
 
@@ -84,6 +93,22 @@ class InheritableCrafts(ProcessedCrafts):
 
 	def update(self, *others: AbstractCrafts) -> 'InheritableCrafts': # O-N(O-N)
 		raise NotImplementedError
+
+
+
+class SeamlessInheritableCrafts(InheritableCrafts, SeamlessCrafts):
+	def _inherit_crafts(self, owner: Type[BasicCrafty]) -> 'InheritableCrafts':
+		super()._inherit_crafts(owner)
+		self._inherit_top_level_crafts(owner)
+
+
+	def _inherit_top_level_crafts(self, owner: Type[BasicCrafty]) -> None:
+		for craft in self.crafts():
+			if isinstance(craft, AwareCraft):
+				for key in craft.top_level_keys():
+					if key is not None:
+						if getattr(owner, key, None) is not craft:
+							setattr(owner, key, craft) # replace old craft with current one
 
 
 

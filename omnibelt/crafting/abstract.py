@@ -39,6 +39,10 @@ class AbstractCraft(AbstractOperational):
 
 
 class AbstractCrafts(AbstractOperational):
+	def crafts(self) -> Iterator[AbstractCraft]:
+		raise NotImplementedError
+
+
 	def crafting(self, instance: 'AbstractCrafty') -> Iterator['AbstractCraftOperator']:
 		raise NotImplementedError
 

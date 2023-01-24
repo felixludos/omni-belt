@@ -36,11 +36,16 @@ class BasicRawCraft(AbstractRawCraft): # decorator
 			self._fn = self._fn._fn  # IMPORTANT: unnest content!
 
 
+
 class SignatureRawCraft(AbstractRawCraft): # the only part of the decorator that matters is the signature
 	def extract_craft_data(self):
 		return {'name': self._name, 'fn': self._fn, 'type': type(self).__name__,
 		        'method': self._method_name, 'args': self._args, 'kwargs': self._kwargs}
 
+
+
+class RawCraftItem(SignatureRawCraft, BasicRawCraft): # decorator
+	pass
 
 
 ########################################################################################################################
@@ -70,6 +75,22 @@ class SignatureCraft(BasicCraft):
 
 
 class AwareCraft(BasicCraft): # (making RawCraft master) - not used -> Craft is master, not RawCraft
+	def __init__(self, manager: 'AbstractCrafts', owner: Type[AbstractCrafty], key: str,
+	             raw: AbstractRawCraft, *, top_keys=None, **kwargs):
+		if top_keys is None:
+			top_keys = OrderedSet()
+		super().__init__(manager, owner, key, raw, **kwargs)
+		self._top_keys = top_keys
+
+
+	def top_level_keys(self):
+		yield from self._top_keys
+	def add_top_level_key(self, key):
+		self._top_keys.add(key)
+	def update_top_level_keys(self, keys):
+		self._top_keys.update(keys)
+
+
 	@property
 	def static_content(self) -> Optional[Callable]:
 		return getattr(self._raw, '_fn', None)
@@ -89,19 +110,18 @@ class WrappedCraft(AwareCraft):
 
 
 
-class PropertyCraft(WrappedCraft):
-	_property_type = cached_property
-
-	@classmethod
-	def _wrap_craft_fn(cls, owner: Type[AbstractCrafty], raw: AbstractRawCraft,
-	                   fn: Optional[Callable] = None) -> Callable:
-		fn = super()._wrap_craft_fn(owner, raw, fn)
-		if fn is not None:
-			return cls._property_type(fn)
-
-
-
 ########################################################################################################################
+
+# class PropertyCraft(WrappedCraft):
+# 	_property_type = None # cached_property
+#
+# 	@classmethod
+# 	def _wrap_craft_fn(cls, owner: Type[AbstractCrafty], raw: AbstractRawCraft,
+# 	                   fn: Optional[Callable] = None) -> Callable:
+# 		fn = super()._wrap_craft_fn(owner, raw, fn)
+# 		if fn is not None:
+# 			return cls._property_type(fn)
+
 
 
 

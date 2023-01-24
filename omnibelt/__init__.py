@@ -23,7 +23,8 @@ from .tricks import self_aware, clsdec, innerchild, method_wrapper, ClassDescrip
 	smartproperty, autoproperty, referenceproperty, defaultproperty, TrackSmart, Tracer, \
 	Modifiable, inject_modifiers, ClassHierarchy, method_decorator
 from .propagators import method_propagator
-from .operators import Operational, Operator, AbstractOperational, AbstractOperator
+from .operators import operation_base, auto_operation, Operationalized, DecoratedOperational, \
+	AbstractOperational, AbstractOperator
 
 from .packing import Packable, primitive, Primitive, SERIALIZABLE, JSONABLE, pack, unpack
 from .packing import save_pack, load_pack, json_pack, json_unpack
