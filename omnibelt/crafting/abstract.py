@@ -33,6 +33,10 @@ class AbstractCraft(AbstractOperational):
 		raise NotImplementedError
 
 
+	def crafting(self, instance: 'AbstractCrafty'):
+		raise NotImplementedError
+
+
 	def merge(self, gizmo: str, others: Iterable['AbstractCraft']) -> 'AbstractCraft':
 		raise NotImplementedError
 
@@ -43,7 +47,7 @@ class AbstractCrafts(AbstractOperational):
 		raise NotImplementedError
 
 
-	def crafting(self, instance: 'AbstractCrafty') -> Iterator['AbstractCraftOperator']:
+	def crafting(self, instance: 'AbstractCrafty') -> 'AbstractCraftsOperator':
 		raise NotImplementedError
 
 
