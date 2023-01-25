@@ -1,6 +1,6 @@
 from typing import Tuple, List, Dict, Optional, Union, Any, Callable, Sequence, Iterator, Iterable, Type, Set
 from ..propagators import method_propagator
-from ..operators import AbstractOperational, AbstractOperator
+from ..operators import AbstractOperational, AbstractOperator, SimpleOperational
 
 
 
@@ -26,29 +26,44 @@ class AbstractRawCraft(method_propagator): # decorator wrapping a property/metho
 
 
 
-class AbstractCraft(AbstractOperational):
+class AbstractCraftOperator(AbstractOperator):
+	pass
+
+
+
+class AbstractCraft(SimpleOperational):
+	Operator = AbstractCraftOperator
+
 	@classmethod
 	def package(cls, manager: 'AbstractCrafts', owner: Type[AbstractCrafty], key: str,
 	            raw: AbstractRawCraft) -> 'AbstractCraft':
 		raise NotImplementedError
 
 
-	def crafting(self, instance: 'AbstractCrafty'):
+	def crafting(self, instance: 'AbstractCrafty') -> 'AbstractCraftOperator':
+		return self._create_operator(instance, type(instance))
+
+
+	def merge(self, others: Iterable['AbstractCraft']) -> 'AbstractCraft':
 		raise NotImplementedError
 
 
-	def merge(self, gizmo: str, others: Iterable['AbstractCraft']) -> 'AbstractCraft':
+
+class AbstractCraftsOperator(AbstractOperator):
+	def crafts(self) -> Iterator[AbstractCraftOperator]:
 		raise NotImplementedError
 
 
 
-class AbstractCrafts(AbstractOperational):
+class AbstractCrafts(SimpleOperational):
+	Operator = AbstractCraftsOperator
+
 	def crafts(self) -> Iterator[AbstractCraft]:
 		raise NotImplementedError
 
 
 	def crafting(self, instance: 'AbstractCrafty') -> 'AbstractCraftsOperator':
-		raise NotImplementedError
+		return self._create_operator(instance, type(instance))
 
 
 	@classmethod
@@ -57,13 +72,6 @@ class AbstractCrafts(AbstractOperational):
 
 
 
-class AbstractCraftsOperator(AbstractOperator):
-	pass
-
-
-
-class AbstractCraftOperator(AbstractOperator):
-	pass
 
 
 

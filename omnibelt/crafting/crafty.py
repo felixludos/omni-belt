@@ -16,6 +16,19 @@ class BasicCrafty(AbstractCrafty): # contains crafts (and craft sources when ins
 			cls._processed_crafts = None if cls._Crafts is None else cls._Crafts.process_crafts(cls)
 
 
+
+class InitializationCrafty(BasicCrafty): # Not needed because of "Operational"
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self._initialize_crafts()
+
+
+	def _initialize_crafts(self):
+		if self._processed_crafts is not None:
+			self._processed_crafts = self._processed_crafts.crafting(self)
+
+
+
 # TODO: crafty where crafts can be added after declaration/inheritance -> LiveCrafty
 
 
@@ -44,19 +57,6 @@ class BasicCrafty(AbstractCrafty): # contains crafts (and craft sources when ins
 # 			tools, craft_items = craft.consolidate_craft_items(self, tools, craft_items)
 #
 # 		return list(reversed(tools))
-
-
-
-# class InitializationCrafty(BasicCrafty): # Not needed because of "Operational"
-# 	def __init__(self, *args, **kwargs):
-# 		super().__init__(*args, **kwargs)
-# 		self._initialize_crafts()
-#
-#
-# 	def _initialize_crafts(self):
-# 		if self._processed_crafts is not None:
-# 			self._processed_crafts = self._processed_crafts.crafting(self)
-
 
 
 

@@ -1,4 +1,4 @@
-from typing import Any, Iterator, List, Optional, Tuple, Union, Callable, Type
+from typing import Any, Iterator, List, Optional, Tuple, Union, Callable, Type, Dict
 import inspect
 
 from .typing import unspecified_argument
@@ -25,11 +25,6 @@ class AbstractOperator:
 
 	def _send_operation(self, item):
 		raise NotImplementedError
-
-
-
-	# class NoOperationFound(AttributeError):
-	# 	pass
 
 
 
@@ -130,6 +125,19 @@ class UniversalOperator(AbstractOperator):
 
 
 
+class MappedOperator(UniversalOperator):
+	def __init__(self, base, instance, *, ops: Dict[str, Callable] = None, **kwargs):
+		super().__init__(base, instance, **kwargs)
+		self._ops = ops
+
+
+	def _default_operation(self, item):
+		if self._ops is None:
+			return super()._default_operation(item)
+		return self._send_operation(self._ops[item])
+
+
+
 class ConditionalOperator(AutoOperator, UniversalOperator):
 	def _check_if_operation(self, item):
 		raise NotImplementedError
@@ -227,8 +235,16 @@ class auto_operation(_operation_base, universal_propagator):
 		return self._method_name
 
 
-
 class SimpleOperational(AbstractOperational):
+	Operator = AbstractOperator
+
+
+	def _create_operator(self, instance, owner, **kwargs):
+		return self.Operator(self, instance, **kwargs)
+
+
+
+class OptionOperational(SimpleOperational):
 	Operator = OptionOperator
 
 
@@ -236,10 +252,10 @@ class SimpleOperational(AbstractOperational):
 		raise NotImplementedError
 
 
-	def _create_operator(self, instance, owner, *, operations=None):
-		if operations is None:
-			operations = set(self.operations())
-		return self.Operator(self, instance, ops=operations)
+	def _create_operator(self, instance, owner, *, ops=None, **kwargs):
+		if ops is None:
+			ops = set(self.operations())
+		return super()._create_operator(instance, owner, ops=ops, **kwargs)
 
 
 
@@ -249,8 +265,8 @@ class Operationalized(AbstractOperational):
 
 
 
-class DecoratedOperational(SimpleOperational):
-	Operator = AliasOperator
+class DecoratedOperational(OptionOperational):
+	Operator = MappedOperator
 
 	_known_operations = None
 	def __init_subclass__(cls, skip_inherit_operations=False, **kwargs):
@@ -273,8 +289,10 @@ class DecoratedOperational(SimpleOperational):
 		yield from self._known_operations.keys()
 
 
-	def _create_operator(self, instance, owner):
-		return self.Operator(self, instance, aliases=self._known_operations)
+	def _create_operator(self, instance, owner, *, ops=None, **kwargs):
+		if ops is None:
+			ops = {op: getattr(self, attr) for op, attr in self._known_operations.items()}
+		return super()._create_operator(instance, owner, ops=ops, **kwargs)
 
 
 

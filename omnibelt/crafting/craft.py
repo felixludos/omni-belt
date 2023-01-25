@@ -1,6 +1,8 @@
 from typing import Tuple, List, Dict, Optional, Union, Any, Callable, Sequence, Iterator, Iterable, Type, Set
 from functools import cached_property
 from .. import method_propagator, method_decorator, OrderedSet, isiterable
+import inspect
+
 
 from .abstract import AbstractCrafty, AbstractCraft, AbstractCrafts, AbstractRawCraft, AbstractCraftOperator
 
@@ -39,7 +41,7 @@ class BasicRawCraft(AbstractRawCraft): # decorator
 
 class SignatureRawCraft(AbstractRawCraft): # the only part of the decorator that matters is the signature
 	def extract_craft_data(self):
-		return {'name': self._name, 'fn': self._fn, 'type': type(self).__name__,
+		return {'name': self._name, 'fn': self._fn, 'type': type(self),
 		        'method': self._method_name, 'args': self._args, 'kwargs': self._kwargs}
 
 
@@ -66,11 +68,13 @@ class BasicCraft(AbstractCraft): # Craft is master
 
 
 
-class SignatureCraft(BasicCraft):
+class SignatureCraft(BasicCraft): # the only part of the decorator that matters is the signature
 	def __init__(self, manager: 'AbstractCrafts', owner: Type[AbstractCrafty], key: str,
-	             raw: SignatureRawCraft, **kwargs):
+	             raw: SignatureRawCraft, data=None, **kwargs):
+		if data is None:
+			data = raw.extract_craft_data()
 		super().__init__(manager, owner, key, raw, **kwargs)
-		self._data = raw.extract_craft_data()
+		self._data = data
 
 
 
@@ -94,6 +98,20 @@ class AwareCraft(BasicCraft): # (making RawCraft master) - not used -> Craft is 
 	@property
 	def static_content(self) -> Optional[Callable]:
 		return getattr(self._raw, '_fn', None)
+
+
+	def crafting(self, instance: 'AbstractCrafty') -> 'AbstractCraftOperator':
+		obj = None
+		for key in self.top_level_keys():
+			value = inspect.getattr_static(instance, key, None)
+			if isinstance(value, self.Operator):
+				obj = value
+				break
+		if obj is None:
+			obj = super().crafting(instance)
+		for key in self.top_level_keys():
+			setattr(instance, key, obj) # maybe check that important stuff isnt getting replaced here
+		return obj
 
 
 

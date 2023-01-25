@@ -39,6 +39,24 @@ class ProcessedCrafts(AbstractCrafts): # container for crafts
 		yield from self._crafts
 
 
+	class Operator(AbstractCrafts.Operator):
+		def __init__(self, base: 'ProcessedCrafts', instance: Any, *, crafts: List[AbstractCraft] = None, **kwargs):
+			if crafts is None:
+				crafts = []
+			super().__init__(base, instance, **kwargs)
+			self._crafts = crafts
+
+
+		def crafts(self) -> Iterator[AbstractCraft]:
+			yield from self._crafts
+
+
+	def _create_operator(self, instance, owner, *, crafts=None, **kwargs):
+		if crafts is None:
+			crafts = [craft.crafting(instance) for craft in self.crafts()]
+		return super()._create_operator(instance, owner, crafts=crafts, **kwargs)
+
+
 
 class SeamlessCrafts(ProcessedCrafts):
 	def _extract_craft_items(self, owner: Type[AbstractCrafty]) -> Iterator[AbstractCraft]:
