@@ -9,11 +9,22 @@ from .typing import agnostic
 
 class method_propagator(method_decorator):
 	def __init__(self, *args, **kwargs):
-		super().__init__() # self._fn # decorated function
+		fn, args = self._filter_callable_arg(args)
+		super().__init__(fn) # self._fn # decorated function
 		self._method_name = None # of decorator:  @method_propagator.method_name(*args, **kwargs) \n def name(...)
 		self._name = None # of decorated function
 		self._args = args
 		self._kwargs = kwargs
+
+
+	_common_content_types = (cached_property, method_decorator, property, staticmethod, classmethod)
+
+	def _filter_callable_arg(self, args):
+		if len(args):
+			first = args[0]
+			if callable(first) or isinstance(first, self._common_content_types):
+				return first, args[1:]
+		return None, args
 
 
 	def _setup_decorator(self, owner: Type, name: str):
@@ -21,6 +32,7 @@ class method_propagator(method_decorator):
 		return super()._setup_decorator(owner, name)
 
 
+	@agnostic
 	def _make_propagator(self, name, **kwargs): # subclasses should define methods which call this
 		return self._propagator_reference(self, name, **kwargs)
 
@@ -28,11 +40,12 @@ class method_propagator(method_decorator):
 	_propagation_type = None
 	class _propagator_reference:
 		'''Default propagator does not keep track of the originator'''
-		def __init__(self, originator, name, *, propagation_type=None, **kwargs):
+		def __init__(self, originator: Union['method_decorator', Type['method_decorator']], name, *,
+		             propagation_type=None, **kwargs):
 			if propagation_type is None:
 				propagation_type = originator._propagation_type
 				if propagation_type is None:
-					propagation_type = type(originator)
+					propagation_type = originator if isinstance(originator, type) else type(originator)
 			super().__init__(**kwargs)
 			self.name = name
 			self._propagator_type = propagation_type
@@ -45,7 +58,16 @@ class method_propagator(method_decorator):
 
 
 
-class universal_propagator(method_propagator):
+class _universal_propagator_meta(type):
+	def __getattribute__(self, item):
+		try:
+			return super().__getattribute__(item)
+		except AttributeError:
+			return self._make_propagator(item)
+
+
+
+class universal_propagator(method_propagator, metaclass=_universal_propagator_meta):
 	def __getattribute__(self, item):
 		try:
 			return super().__getattribute__(item)

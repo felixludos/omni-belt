@@ -112,7 +112,7 @@ class HubOperator(KeyedOperator):
 
 
 
-class UniversalOperator(AbstractOperator):
+class UniversalOperator(SimpleOperator):
 	def _default_operation(self, item):
 		return getattr(self._base, item)
 
@@ -134,8 +134,13 @@ class MappedOperator(UniversalOperator):
 	def _default_operation(self, item):
 		if self._ops is None:
 			return super()._default_operation(item)
-		return self._send_operation(self._ops[item])
+		return self._send_operation(item)
 
+
+	def _send_operation(self, fn: Union[Callable, str], **kwargs):
+		if isinstance(fn, str):
+			fn = self._ops[fn]
+		return super()._send_operation(fn, **kwargs)
 
 
 class ConditionalOperator(AutoOperator, UniversalOperator):
@@ -198,7 +203,7 @@ class _operation_base(method_decorator):
 
 
 	@property
-	def fn(self):
+	def original_function(self):
 		return self._fn
 
 
@@ -224,15 +229,16 @@ class operation_base(_operation_base):
 
 class auto_operation(_operation_base, universal_propagator):
 	# first argument of wrapped functions should always be the instance
-
 	def __call__(self, fn):
 		raise ValueError('operation decorator does not take arguments')
+
 
 	@property
 	def op_name(self):
 		if self._method_name is None:
 			return self._attr_name
 		return self._method_name
+
 
 
 class SimpleOperational(AbstractOperational):
@@ -275,13 +281,16 @@ class DecoratedOperational(OptionOperational):
 			ops = {}
 			if not skip_inherit_operations:
 				for base in reversed(cls.__bases__):  # O-N
-					ops.update(getattr(base, '_known_operations', {}))
+					new = getattr(base, '_known_operations', {})
+					if new:
+						ops.update(new)
 			fixes = {}
 			for name, attr in cls.__dict__.items(): # O-N
-				if isinstance(attr, operation_base):
+				if isinstance(attr, _operation_base):
 					ops[attr.op_name] = attr.attr_name
-					fixes[name] = attr.fn
-			cls.__dict__.update(fixes)
+					fixes[name] = attr.original_function
+			for name, fn in fixes.items():
+				setattr(cls, name, fn)
 			cls._known_operations = ops # O-N
 
 

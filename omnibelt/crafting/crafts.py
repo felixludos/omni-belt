@@ -60,24 +60,14 @@ class ProcessedCrafts(AbstractCrafts): # container for crafts
 
 class SeamlessCrafts(ProcessedCrafts):
 	def _extract_craft_items(self, owner: Type[AbstractCrafty]) -> Iterator[AbstractCraft]:
-		fixes = {}
 		for key, val in owner.__dict__.items(): # O-N
 			if isinstance(val, self.CraftLike):
 				items = self._process_craft_item(owner, key, val) # parsing order
 				first = next(items)
 				if isinstance(first, AwareCraft):
-					content = first.static_content
-					if content is None:
-						fixes[key] = first
-					else:
-						first.add_top_level_key(key)
-						fixes[key] = content
-
+					first.remove_seams(owner, key)
 				yield first
 				yield from items
-
-		for key, val in fixes.items():
-			setattr(owner, key, val)
 
 
 
@@ -95,11 +85,11 @@ class ItemCrafts(ProcessedCrafts):
 
 
 class InheritableCrafts(ProcessedCrafts):
-	def __init__(self, owner: Type[BasicCrafty] = None, raw: Iterator[AbstractRawCraft] = None, *,
-	             crafts: Iterable[AbstractCraft] = None, **kwargs):
-		super().__init__(owner, raw, crafts=crafts, **kwargs)
-		if owner is not None:
-			self._inherit_crafts(owner)
+	@classmethod
+	def process_crafts(cls, owner: Type[BasicCrafty]) -> 'ProcessedCrafts':
+		crafts: InheritableCrafts = super().process_crafts(owner)
+		crafts._inherit_crafts(owner)
+		return crafts
 
 
 	def _inherit_crafts(self, owner: Type[BasicCrafty]) -> 'InheritableCrafts':

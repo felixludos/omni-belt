@@ -1,8 +1,9 @@
 from typing import Tuple, List, Dict, Optional, Union, Any, Callable, Sequence, Iterator, Iterable, Type, Set
 from functools import cached_property
+import inspect
 from omnibelt import method_propagator, OrderedSet, isiterable
 
-from .abstract import AbstractCrafty, AbstractCraft
+from .abstract import AbstractCrafty, AbstractCrafts
 
 
 
@@ -24,8 +25,9 @@ class InitializationCrafty(BasicCrafty): # Not needed because of "Operational"
 
 
 	def _initialize_crafts(self):
-		if self._processed_crafts is not None:
-			self._processed_crafts = self._processed_crafts.crafting(self)
+		crafts = inspect.getattr_static(self, '_processed_crafts', None)
+		if crafts is not None and isinstance(crafts, AbstractCrafts):
+			self._processed_crafts = crafts.crafting(self)
 
 
 

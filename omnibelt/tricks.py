@@ -355,7 +355,8 @@ class method_wrapper(method_decorator):
 
 
 class auto_methods(capturable_method):
-	_method_capturer = captured_method
+	class _method_capturer(captured_method, manual_method_decorator):
+		pass
 	_auto_wrap_mro_until = None
 	def __init_subclass__(cls, auto_methods: Optional[Union[str, Sequence[str]]] = (), wrap_existing: bool = False,
 	                      inheritable_auto_methods: Optional[Union[str, Sequence[str]]] = (),
