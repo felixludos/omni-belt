@@ -9,10 +9,9 @@ from .typing import agnostic
 
 class method_propagator(method_decorator):
 	def __init__(self, *args, **kwargs):
-		super().__init__()
+		super().__init__() # self._fn # decorated function
 		self._method_name = None # of decorator:  @method_propagator.method_name(*args, **kwargs) \n def name(...)
 		self._name = None # of decorated function
-		self._fn = None # decorated function
 		self._args = args
 		self._kwargs = kwargs
 

@@ -11,18 +11,17 @@ from .abstract import AbstractCrafty, AbstractCraft, AbstractCrafts, AbstractRaw
 class BasicRawCraft(AbstractRawCraft): # decorator
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
-		self._filter_callable_arg()
+		self._fn, self._args = self._filter_callable_arg(self._args)
 
 
 	_common_content_types = (method_propagator, cached_property, method_decorator, property, staticmethod, classmethod)
 
-	def _filter_callable_arg(self):
-		args = self._args
+	def _filter_callable_arg(self, args):
 		if len(args):
 			first = args[0]
 			if callable(first) or isinstance(first, self._common_content_types):
-				self._args = args[1:]
-				self._fn = first
+				return first, args[1:]
+		return None, args
 
 
 	_CraftItem: AbstractCraft = None # must not be a subclass of SelfCrafting!
