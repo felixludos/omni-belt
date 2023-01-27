@@ -284,14 +284,14 @@ class DecoratedOperational(OptionOperational):
 					new = getattr(base, '_known_operations', {})
 					if new:
 						ops.update(new)
-			fixes = {}
 			for name, attr in cls.__dict__.items(): # O-N
 				if isinstance(attr, _operation_base):
-					ops[attr.op_name] = attr.attr_name
-					fixes[name] = attr.original_function
-			for name, fn in fixes.items():
-				setattr(cls, name, fn)
+					ops[attr.op_name] = attr
+					setattr(cls, name, attr.original_function)
 			cls._known_operations = ops # O-N
+
+	def _process_operation(self, ops, name, attr):
+		return op
 
 
 	def operations(self) -> Iterator[str]:
@@ -300,7 +300,8 @@ class DecoratedOperational(OptionOperational):
 
 	def _create_operator(self, instance, owner, *, ops=None, **kwargs):
 		if ops is None:
-			ops = {op: getattr(self, attr) for op, attr in self._known_operations.items()}
+			ops = {name: getattr(self, op.attr_name)
+			       for name, op in self._known_operations.items()}
 		return super()._create_operator(instance, owner, ops=ops, **kwargs)
 
 
