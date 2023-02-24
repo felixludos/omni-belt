@@ -83,7 +83,7 @@ class ProcessedCrafty(InheritableCrafty):
 
 class ProcessedIndividualCrafty(ProcessedCrafty):
 	def _process_all_crafts(self):
-		for craft in self._emit_all_crafts():
+		for craft in self._emit_all_crafts(self):
 			self._process_craft(craft)
 
 
