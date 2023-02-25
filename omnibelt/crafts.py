@@ -63,16 +63,19 @@ class NestableCraft(AbstractCraft):
 class InheritableCrafty(AbstractCrafty):
 	@classmethod
 	def _emit_all_craft_items(cls, *, remaining: Iterator[Type['InheritableCrafty']] = None,
-	                          ) -> Iterator[Tuple[Type[AbstractCrafty], str, AbstractCraft]]: # N-O
+	                          start : Type['InheritableCrafty'] = None,
+	                          **kwargs) -> Iterator[Tuple[Type[AbstractCrafty], str, AbstractCraft]]: # N-O
 		if remaining is None:
 			remaining = iter(cls.mro()) # N-O
+		if start is None:
+			start = cls
 
 		for current in remaining: # N-O
 			if issubclass(current, AbstractCrafty):
 				for key, craft in current._emit_my_craft_items():
 					yield current, key, craft
 			if issubclass(current, InheritableCrafty):
-				yield from current._emit_all_craft_items(remaining=remaining)
+				yield from current._emit_all_craft_items(remaining=remaining, start=start, **kwargs)
 
 
 
@@ -85,10 +88,10 @@ class ProcessedCrafty(InheritableCrafty):
 class IndividualCrafty(ProcessedCrafty):
 	def _process_crafts(self):
 		for owner, key, craft in self._emit_all_craft_items():
-			self._process_skill(craft.as_skill(self))
+			self._process_skill(owner, key, craft, craft.as_skill(self))
 
 
-	def _process_skill(self, skill: AbstractSkill):
+	def _process_skill(self, src: Type[AbstractCrafty], key: str, craft: AbstractCraft, skill: AbstractSkill):
 		pass
 
 
