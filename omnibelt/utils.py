@@ -1,6 +1,8 @@
 
 # from omnibelt import safe_self_execute
 
+from typing import Iterator, Hashable
+
 from collections import OrderedDict
 
 def sign(x):
@@ -32,6 +34,15 @@ def split_dict(items, keys):
 			bad[k] = items[k]
 	return good, bad
 
+
+
+def filter_duplicates(*iterators: Iterator[Hashable]):
+	seen = set()
+	for it in iterators:
+		for x in it:
+			if x not in seen:
+				seen.add(x)
+				yield x
 
 
 
