@@ -196,7 +196,7 @@ class ExportManager:
 			dest = fmt.create_export_path(name=name, root=root, payload=payload) if path is None else Path(path)
 			try:
 				return cls._export_fmt(fmt, payload, dest, **kwargs)
-			except fmt.ExportFailedError:
+			except fmt._ExportFailedError:
 				pass
 
 		raise cls.ExportFailedError(payload, fmts)
@@ -223,7 +223,7 @@ class ExportManager:
 			dest = fmt.create_export_path(name=name, root=root) if path is None else Path(path)
 			try:
 				return cls._load_export_fmt(fmt, dest, **kwargs)
-			except fmt.LoadFailedError:
+			except fmt._LoadFailedError:
 				pass
 
 		raise cls.LoadFailedError(path, fmts)
@@ -284,6 +284,10 @@ def load_export(name=None, root=None, *, fmt=None, path=None, manager=None, **kw
 		manager = _current_export_manager
 	return manager.load_export(name=name, root=root, fmt=fmt, path=path, **kwargs)
 
+
+
+class LoadFailedError(ValueError): pass
+class ExportFailedError(ValueError): pass
 
 
 class Exporter:
@@ -356,9 +360,8 @@ class Exporter:
 		options = getattr(cls, '_my_export_extensions', None)
 		return root / f'{name}{"" if options is None else options[0]}'
 
-
-	class LoadFailedError(ValueError): pass
-	class ExportFailedError(ValueError): pass
+	_LoadFailedError = LoadFailedError
+	_ExportFailedError = ExportFailedError
 
 	@staticmethod
 	def _load_export(path: Path, src: Type['ExportManager']) -> Any:
