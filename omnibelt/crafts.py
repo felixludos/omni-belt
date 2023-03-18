@@ -13,6 +13,7 @@ class AbstractCrafty:
 					yield key, craft
 
 
+
 class AbstractSkill:
 	def as_skill(self, owner: AbstractCrafty):
 		return self
@@ -42,13 +43,14 @@ class NestableCraft(AbstractCraft):
 	def emit_craft_items(self): # parsing order (N-O)
 		yield from super().emit_craft_items()
 		if isinstance(self.wrapped, AbstractCraft):
-			yield self.wrapped.emit_craft_items()
+			yield from self.wrapped.emit_craft_items()
 
 
 	@property
 	def content(self): # wrapped method
 		if isinstance(self.wrapped, NestableCraft):
 			return self.wrapped.content
+		return self.wrapped
 
 
 	@property

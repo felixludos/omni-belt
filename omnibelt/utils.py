@@ -38,8 +38,8 @@ def split_dict(items, keys):
 
 def filter_duplicates(*iterators: Iterator[Hashable]):
 	seen = set()
-	for it in iterators:
-		for x in it:
+	for itr in iterators:
+		for x in itr:
 			if x not in seen:
 				seen.add(x)
 				yield x
