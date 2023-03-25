@@ -2,14 +2,17 @@ from typing import Tuple, List, Dict, Optional, Union, Any, Callable, Sequence, 
 
 
 # from .abstract import
+from .typing import agnostic
 
 
 class AbstractCrafty:
 	@classmethod
-	def _emit_my_craft_items(cls) -> Iterator[Tuple[str, 'AbstractCraft']]: # N-O
+	def _emit_my_craft_items(cls, owner=None) -> Iterator[Tuple[str, 'AbstractCraft']]: # N-O
+		if owner is None:
+			owner = cls
 		for key, val in reversed(cls.__dict__.items()): # N-O
 			if isinstance(val, AbstractCraft):
-				for craft in val.emit_craft_items(): # N-O
+				for craft in val.emit_craft_items(owner): # N-O
 					yield key, craft
 
 
@@ -21,7 +24,7 @@ class AbstractSkill:
 
 
 class AbstractCraft(AbstractSkill):
-	def emit_craft_items(self):
+	def emit_craft_items(self, owner=None):
 		yield self # stateless
 
 
@@ -40,10 +43,10 @@ class SkilledCraft(AbstractCraft):
 
 
 class NestableCraft(AbstractCraft):
-	def emit_craft_items(self): # parsing order (N-O)
-		yield from super().emit_craft_items()
+	def emit_craft_items(self, owner=None): # parsing order (N-O)
+		yield from super().emit_craft_items(owner)
 		if isinstance(self.wrapped, AbstractCraft):
-			yield from self.wrapped.emit_craft_items()
+			yield from self.wrapped.emit_craft_items(owner)
 
 
 	@property
@@ -63,21 +66,24 @@ class NestableCraft(AbstractCraft):
 
 
 class InheritableCrafty(AbstractCrafty):
-	@classmethod
-	def _emit_all_craft_items(cls, *, remaining: Iterator[Type['InheritableCrafty']] = None,
-	                          start : Type['InheritableCrafty'] = None,
+	@agnostic
+	def _emit_all_craft_items(self, *, remaining: Iterator[Type['InheritableCrafty']] = None,
+	                          start : Type['InheritableCrafty'] = None, owner : Type['InheritableCrafty'] = None,
 	                          **kwargs) -> Iterator[Tuple[Type[AbstractCrafty], str, AbstractCraft]]: # N-O
+		cls = self if isinstance(self, type) else type(self)
 		if remaining is None:
 			remaining = iter(cls.mro()) # N-O
 		if start is None:
 			start = cls
+		if owner is None:
+			owner = self
 
 		for current in remaining: # N-O
 			if issubclass(current, AbstractCrafty):
-				for key, craft in current._emit_my_craft_items():
+				for key, craft in current._emit_my_craft_items(owner):
 					yield current, key, craft
 			if issubclass(current, InheritableCrafty):
-				yield from current._emit_all_craft_items(remaining=remaining, start=start, **kwargs)
+				yield from current._emit_all_craft_items(remaining=remaining, start=start, owner=owner, **kwargs)
 
 
 
