@@ -103,6 +103,23 @@ class IndividualCrafty(ProcessedCrafty):
 		pass
 
 
+
+class HiddenCrafty(AbstractCrafty):
+	_hidden_crafts = None
+	def __init_subclass__(cls, **kwargs):
+		super().__init_subclass__(**kwargs)
+		cls._hidden_crafts = []
+
+
+	@classmethod
+	def _emit_my_craft_items(cls, owner=None) -> Iterator[Tuple[str, 'AbstractCraft']]: # N-O
+		yield from super()._emit_my_craft_items(owner)
+		if cls._hidden_crafts is not None:
+			yield from cls._hidden_crafts
+
+
+
+
 ########################################################################################################################
 
 
