@@ -164,8 +164,10 @@ class Entry_Double_Registry(Double_Registry, Entry_Registry):
 		return getattr(value, cls._key_name)
 
 
-	def get_value(self, key):
-		return getattr(self.find(key), self._sister_key_name)
+	def get_value(self, key, default=unspecified_argument):
+		if default is unspecified_argument:
+			return getattr(self.find(key), self._sister_key_name)
+		return getattr(self.find(key), self._sister_key_name, default)
 
 
 	def update(self, other, sync=True):
@@ -261,8 +263,8 @@ class Class_Registry(Entry_Double_Registry, sister_component='cls'):
 		super().__init_subclass__(primary_component='name', sister_component=sister_component,
 		                          components=components, required=required)
 
-	def get_class(self, key):
-		return self.get_value(key)
+	def get_class(self, key, default=unspecified_argument):
+		return self.get_value(key, default=default)
 
 	class DecoratorBase(Entry_Double_Registry.DecoratorBase):
 		def _register(self, val, name=None, **params):
