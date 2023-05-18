@@ -358,7 +358,9 @@ class Exporter:
 			root = Path()
 		root = Path(root)
 		options = getattr(cls, '_my_export_extensions', None)
-		return root / f'{name}{"" if options is None else options[0]}'
+		if options is not None and len(options) and not name.endswith(options[0]):
+			name = f'{name}{options[0]}'
+		return root / name
 
 	_LoadFailedError = LoadFailedError
 	_ExportFailedError = ExportFailedError

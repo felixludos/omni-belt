@@ -189,7 +189,7 @@ class Entry_Double_Registry(Double_Registry, Entry_Registry):
 		return super().__delitem__(key, sync=False)
 
 
-	def get_decorator(self, name: Optional[str] = None, defaults: Dict[str, Any] = None):
+	def get_decorator(self, name: Optional[str] = None, defaults: Dict[str, Any] = None) -> Type['DecoratorBase']:
 		if defaults is None:
 			defaults = {}
 		return type(f'{self.__class__.__name__}_Decorator' if name is None else name,
