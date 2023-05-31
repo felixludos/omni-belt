@@ -19,12 +19,15 @@ def expression_format(s, **vars):
 	return s.format(**vals)
 
 
+
 class PowerFormatter(Formatter):
+	# TODO: partial formatting - only format fields that are specified, and leave others as is
 	def get_field(self, field_name, args, kwargs):
 		try:
 			return super().get_field(field_name, args, kwargs)
 		except: # TODO: find the right exception
 			return eval(self.vformat(field_name, args, kwargs), kwargs), field_name
+			# return f'{{{field_name}}}', field_name
 
 
 	def parse(self, s):
@@ -63,7 +66,16 @@ class PowerFormatter(Formatter):
 					pre = s[pre_idx:start_idx]
 					field = s[start_idx + 1:close_idx]
 					if field.startswith("{") and field.endswith("}"):
-						escaped = pre + field
+						escaped = pre + '{'
+
+						for lit, field, spec, conv in self.parse(field[1:-1]):
+							if escaped is not None:
+								lit = escaped + lit
+								escaped = None
+							yield lit, field, spec, conv
+
+						escaped = '}'
+
 					else:
 						# spec = None
 						lim = field.rfind('}')
@@ -98,12 +110,14 @@ class PowerFormatter(Formatter):
 				idx = close_idx + 1
 
 
+
 def pformat(s, **vars):
 	"""
 	Evaluates the keys in the given string as expressions using the given variables (recursively)
 	"""
 	fmt = PowerFormatter()
 	return fmt.format(s, **vars)
+
 
 
 

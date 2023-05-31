@@ -45,19 +45,17 @@ class SkilledCraft(AbstractCraft):
 class NestableCraft(AbstractCraft):
 	def emit_craft_items(self, owner=None): # parsing order (N-O)
 		yield from super().emit_craft_items(owner)
-		if isinstance(self.wrapped, AbstractCraft):
-			yield from self.wrapped.emit_craft_items(owner)
+		content = self._wrapped_content()
+		if isinstance(content, AbstractCraft):
+			yield from content.emit_craft_items(owner)
 
 
-	@property
-	def content(self): # wrapped method
-		if isinstance(self.wrapped, NestableCraft):
-			return self.wrapped.content
-		return self.wrapped
+	def _wrapped_content_leaf(self): # wrapped method
+		wrapped = self._wrapped_content()
+		return wrapped._wrapped_content_leaf() if isinstance(wrapped, NestableCraft) else wrapped
 
 
-	@property
-	def wrapped(self): # wrapped method
+	def _wrapped_content(self): # wrapped method
 		raise NotImplementedError
 
 
