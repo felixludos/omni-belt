@@ -1207,6 +1207,14 @@ def collect_init_kwargs(typ: Type, default: Any = Parameter.empty, *, end_type: 
 	return collect_fn_kwargs(*deep_method_finder(typ, method='__init__', break_fn=break_fn),
 							 default=default, ignore_positional_only=ignore_positional_only)
 
+
+
+def args2kwargs(fn: Callable, args: Tuple = None, kwargs: Dict[str, Any] = None, *,
+                ignore_positional_only: bool = False, include_missing: bool = False) -> Dict[str, Any]:
+	return extract_function_signature(fn, args, kwargs, allow_positional=False, include_missing=include_missing,
+	                                  force_no_positional=not ignore_positional_only)
+
+
 	
 def extract_function_signature(fn: Union[Callable, Type],
                                args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None, *,
