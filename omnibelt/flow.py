@@ -109,3 +109,33 @@ def include_modules(*modules: str, root=None, allow_local=False):
 
 	return loaded
 
+
+
+class lengen:
+	class _lengen: # TODO: wrap generator functions
+		def __init__(self, gen, n):
+			self.gen = gen
+			self.n = n
+			
+		def __iter__(self):
+			return self
+		
+		def __next__(self):
+			return next(self.gen)
+		
+		def __len__(self):
+			return self.n
+	
+	def __init__(self, generator_fn):
+		self.generator_fn = generator_fn
+		
+	def __repr__(self):
+		return f'<lengen {self.generator_fn.__name__}>'
+	
+	def __call__(self, *args, **kwargs):
+		gen = self.generator_fn(*args, **kwargs)
+		return self._lengen(gen, next(gen))
+
+
+
+
