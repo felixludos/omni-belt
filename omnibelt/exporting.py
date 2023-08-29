@@ -187,8 +187,8 @@ class ExportManager:
 
 		if fmt is not None:
 			fmts = cls.resolve_fmt(fmt)
-		# elif path is not None: # TODO: payload exporter has to figure out what to do if the extension is different
-		# 	fmts = cls.resolve_fmt_from_path(Path(path))
+		elif path is not None: # TODO: payload exporter has to figure out what to do if the extension is different
+			fmts = cls.resolve_fmt_from_path(Path(path))
 		else:
 			fmts = cls.resolve_fmt_from_obj(payload)
 

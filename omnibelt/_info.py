@@ -19,10 +19,13 @@ packages = ['omnibelt']
 
 import os
 try:
+	raise NotImplementedError
 	with open(os.path.join(os.path.abspath(os.path.dirname(os.path.dirname(__file__))), 'requirements.txt'), 'r') as f:
 		install_requires = f.readlines()
 except:
-	install_requires = ['pyyaml', 'dill', 'wrapt>=1.11.2', 'cryptography>=2.7', 'indexed>=1.3.0']
+	install_requires = ['pyyaml', 'dill', 'wrapt>=1.11.2',
+						'cryptography',#>=2.7',
+						'indexed>=1.3.0']
 del os
 
 
