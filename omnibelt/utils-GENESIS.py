@@ -1,7 +1,7 @@
 
 # from omnibelt import safe_self_execute
 
-from typing import Iterator, Hashable
+from typing import Iterator, Hashable, Callable
 
 from collections import OrderedDict
 from string import Formatter
@@ -9,54 +9,20 @@ from tqdm import tqdm
 from tqdm.notebook import tqdm as tqdm_notebook
 
 
-def format_readable_number(n, sig_figs):
-	format_str = "{:." + str(sig_figs) + "g}"
-	val = format_str.format(n)
-	# remove trailing 0s
-	if '.' in val:
-		val = val.rstrip("0")
-	# remove trailing .
-	val = val.rstrip(".")
-	return val
-
-
-def human_readable_number(num, significant_figures=3, *, gap='', units=None):
-	# Default units if not provided
-	if units is None:
-		units = {
-			"Q": 1_000_000_000_000_000,
-			"T": 1_000_000_000_000,
-			"B": 1_000_000_000,
-			"M": 1_000_000,
-			"K": 1_000,
-			# "": 1
-		}
-
-	# Sort units from largest to smallest
-	sorted_units = sorted(units.items(), key=lambda x: x[1], reverse=True)
-
-	for unit, threshold in sorted_units:
-		if abs(num) >= threshold:
-			return format_readable_number(num / threshold, significant_figures) + gap + unit
-
-	return format_readable_number(num, significant_figures)
-
-
-
 def tqdmd(itr, key=None, **kwargs):
-    pbar = tqdm(itr, **kwargs)
-    for v in pbar:
-        if key is not None:
-            pbar.set_description(v if isinstance(key, bool) else key(v))
-        yield v
+	pbar = tqdm(itr, **kwargs)
+	for v in pbar:
+		if key is not None:
+			pbar.set_description(key(v) if isinstance(key, Callable) else v)
+		yield v
 
 
 def tqdmd_notebook(itr, key=None, **kwargs):
-    pbar = tqdm_notebook(itr, **kwargs)
-    for v in pbar:
-        if key is not None:
-            pbar.set_description(v if isinstance(key, bool) else key(v))
-        yield v
+	pbar = tqdm_notebook(itr, **kwargs)
+	for v in pbar:
+		if key is not None:
+			pbar.set_description(key(v) if isinstance(key, Callable) else v)
+		yield v
 
 
 
