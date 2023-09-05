@@ -44,19 +44,19 @@ def human_readable_number(num, significant_figures=3, *, gap='', units=None):
 
 
 def tqdmd(itr, key=None, **kwargs):
-    pbar = tqdm(itr, **kwargs)
-    for v in pbar:
-        if key is not None:
-            pbar.set_description(v if isinstance(key, bool) else key(v))
-        yield v
+	pbar = tqdm(itr, **kwargs)
+	for v in pbar:
+		if key is not None:
+			pbar.set_description(v if isinstance(key, bool) else key(v))
+		yield v
 
 
 def tqdmd_notebook(itr, key=None, **kwargs):
-    pbar = tqdm_notebook(itr, **kwargs)
-    for v in pbar:
-        if key is not None:
-            pbar.set_description(v if isinstance(key, bool) else key(v))
-        yield v
+	pbar = tqdm_notebook(itr, **kwargs)
+	for v in pbar:
+		if key is not None:
+			pbar.set_description(v if isinstance(key, bool) else key(v))
+		yield v
 
 
 
