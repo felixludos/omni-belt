@@ -5,11 +5,11 @@ import inspect
 
 primitives = (str, int, float, bool, type(None))
 
-unspecified_argument = inspect._empty
-# class unspecified_argument:
-# 	@staticmethod
-# 	def __repr__():
-# 		return '<unspecified>'
+# unspecified_argument = inspect._empty
+class unspecified_argument:
+	@staticmethod
+	def __repr__():
+		return '<unspecified>'
 
 
 class agnostic:
