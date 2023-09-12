@@ -88,7 +88,7 @@ class AbstractLoader:
 		Non-positive values mean this exporter should not be used for this path.
 		The higher the value, the higher the priority for this exporter to be used.
 		'''
-		return self.affinity_from_format(path.suffix)
+		return self.affinity_from_format(''.join(path.suffixes))
 
 
 	@staticmethod
@@ -99,7 +99,7 @@ class AbstractLoader:
 	@classmethod
 	def load_export(self, name: Optional[str] = None, root: Optional[Union[Path, str]] = None, *,
 					path: Optional[Union[str, Path]] = None, manager: Optional['ExportManager'] = None,
-					fmt: Optional[Union[str, Type['Exporter']]] = unspecified_argument) -> Any:
+					fmt: Optional[Union[str, Type['ExporterBase']]] = unspecified_argument) -> Any:
 		if manager is None:
 			manager = getattr(self, '_my_export_manager', _current_export_manager)
 		if fmt is unspecified_argument:
@@ -124,7 +124,7 @@ class AbstractExporter:
 		Non-positive values mean this exporter should not be used for this path.
 		The higher the value, the higher the priority for this exporter to be used.
 		'''
-		return self.affinity_from_format(path.suffix)
+		return self.affinity_from_format(''.join(path.suffixes))
 
 
 	def affinity_from_payload(self, payload: Any) -> int:
@@ -141,7 +141,7 @@ class AbstractExporter:
 	@classmethod
 	def export(cls, payload, name: Optional[str] = None, root: Optional[Union[str, Path]] = None, *,
 			   path: Optional[Union[str, Path]] = None, manager: Optional['ExportManager'] = None,
-			   fmt: Optional[Union[str, Type['Exporter']]] = unspecified_argument) -> Optional[Path]:
+			   fmt: Optional[Union[str, Type['ExporterBase']]] = unspecified_argument) -> Optional[Path]:
 		if manager is None:
 			manager = getattr(cls, '_my_export_manager', _current_export_manager)
 		if fmt is unspecified_argument:
@@ -193,17 +193,16 @@ class ExportManager(AbstractExportManager):
 							payload: Optional[Any] = unspecified_argument) -> Iterator[AbstractExporter]:
 		assert fmt is not None or path is not None or payload is not unspecified_argument, \
 			f'Must provide either a format, a path, or a payload: {fmt}, {path}, {payload}'
-		options = ((None if payload is unspecified_argument else exporter.affinity_from_payload(payload),
+		options = list((None if payload is unspecified_argument else exporter.affinity_from_payload(payload),
 					None if fmt is None else exporter.affinity_from_format(fmt),
 					None if path is None else exporter.affinity_from_path(path),
 					exporter) for exporter in self.exporters())
 
-		for payload_affinity, fmt_affinity, path_affinity, exporter in sorted(options, reverse=True):
-			if payload_affinity is not None and payload_affinity <= 0:
-				break
-			if fmt_affinity is not None and fmt_affinity <= 0:
-				break
-			if path_affinity is not None and path_affinity <= 0:
+		for payload_affinity, fmt_affinity, path_affinity, exporter in sorted(options, reverse=True,
+																			  key=lambda info: tuple(info[:-1])):
+			if (payload_affinity is None or payload_affinity <= 0) \
+				and (fmt_affinity is None or fmt_affinity <= 0) \
+				and (path_affinity is None or path_affinity <= 0):
 				break
 			yield exporter
 
@@ -212,17 +211,15 @@ class ExportManager(AbstractExportManager):
 		yield from reversed(self._loaders)
 
 
-	def _matching_loaders(self, path: Path, fmt: Optional[str] = None) -> Iterator[AbstractExporter]:
-		options = ((None if fmt is None else exporter.affinity_from_format(fmt),
+	def _matching_loaders(self, path: Path, fmt: Optional[str] = None) -> Iterator[AbstractLoader]:
+		options = list((None if fmt is None else exporter.affinity_from_format(fmt),
 					None if path is None else exporter.affinity_from_path(path),
 					exporter) for exporter in self.exporters())
 
-		for fmt_affinity, path_affinity, exporter in sorted(options, reverse=True):
-			if fmt_affinity is not None and fmt_affinity <= 0:
+		for fmt_affinity, path_affinity, loader in sorted(options, reverse=True, key=lambda info: tuple(info[:-1])):
+			if (fmt_affinity is None or fmt_affinity <= 0) and (path_affinity is None or path_affinity <= 0):
 				break
-			if path_affinity is not None and path_affinity <= 0:
-				break
-			yield exporter
+			yield loader
 
 
 	_UnknownExportData = UnknownExportData
@@ -241,7 +238,7 @@ class ExportManager(AbstractExportManager):
 		errors = OrderedDict()
 		for exporter in self._matching_exporters(payload=payload, fmt=fmt, path=path):
 			try:
-				return exporter.export_payload(payload, path, fmt=fmt, src=self, **kwargs)
+				return exporter.export_payload(self, payload=payload, path=path, fmt=fmt, **kwargs)
 			except ExportFailedError as e:
 				errors[exporter] = e
 
@@ -275,8 +272,8 @@ class ExportManager(AbstractExportManager):
 		errors = OrderedDict()
 		for loader in self._matching_loaders(path, fmt=fmt):
 			try:
-				return loader.load_payload(self, path, fmt=fmt, **kwargs)
-			except loader._LoadFailedError as e:
+				return loader.load_payload(self, path=path, fmt=fmt, **kwargs)
+			except LoadFailedError as e:
 				errors[loader] = e
 
 		if not errors:
@@ -294,7 +291,7 @@ def set_export_manager(manager: AbstractExportManager) -> AbstractExportManager:
 
 
 
-def export(obj, path: Union[str, Path], *, fmt: Union[str, AbstractExporter, None] = None,
+def export(obj: Any, path: Union[str, Path], *, fmt: Union[str, AbstractExporter, None] = None,
 		   root: Union[str, Path, None] = None, manager: Optional[AbstractExportManager] = None,
 		   **kwargs):
 	if manager is None:
@@ -311,7 +308,7 @@ def load_export(path: Union[str, Path], *, fmt: Union[str, AbstractLoader, None]
 
 
 
-class SimpleExporterBase(AbstractExporter, AbstractLoader):
+class ExporterBase(AbstractExporter, AbstractLoader):
 	_my_suffixes = None
 	_my_payload_types = None
 	def __init_subclass__(cls, extensions: Union[None, str, Sequence[str]] = None,
@@ -339,11 +336,6 @@ class SimpleExporterBase(AbstractExporter, AbstractLoader):
 			ext = f'.{ext}'
 		return ext
 
-	def fix_path(self, path: Path) -> Path:
-		if self._my_suffixes is not None and path.suffix not in self._my_suffixes:
-			path = path.with_suffix(self._my_suffixes[0])
-		return path
-
 
 	def affinity_from_format(self, fmt: str) -> int:
 		'''
@@ -360,7 +352,7 @@ class SimpleExporterBase(AbstractExporter, AbstractLoader):
 		Non-positive values mean this exporter should not be used for this path.
 		The higher the value, the higher the priority for this exporter to be used.
 		'''
-		return self.affinity_from_format(path.suffix)
+		return self.affinity_from_format(''.join(path.suffixes))
 
 
 	def affinity_from_payload(self, payload: Any) -> int:
@@ -373,12 +365,20 @@ class SimpleExporterBase(AbstractExporter, AbstractLoader):
 			return False
 		product = type(payload)
 		history = product.mro()
-		return len(history) - min(history.index(typ) for typ in self._my_payload_types if issubclass(typ, product))
+		return len(history) - min(history.index(typ) for typ in self._my_payload_types if issubclass(product, typ))
+
+
+
+class SimpleExporterBase(ExporterBase):
+	def fix_path(self, path: Path) -> Path:
+		if self._my_suffixes is not None and ''.join(path.suffixes) not in self._my_suffixes:
+			path = path.with_suffix(self._my_suffixes[0])
+		return path
 
 
 	def export_payload(self, src: AbstractExportManager, payload: Any, path: Path, *,
 					   fmt: Optional[str] = None, **kwargs) -> Path:
-		if fmt is None or self.affinity_from_format(fmt) > 0:
+		if not len(path.suffix) and (fmt is None or self.affinity_from_format(fmt) > 0):
 			# if no manual fmt was provided, or manually specified self
 			path = self.fix_path(path.resolve())
 		self._export_payload(payload, path, **kwargs)

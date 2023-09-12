@@ -40,7 +40,7 @@ class PackedExport(UniversalExporter, extensions='.pkd'):
 
 
 
-class YamlExport(UniversalExporter, extensions=['.yaml', '.yml']):
+class YamlExport(UniversalExporter, extensions=['.yml', '.yaml']):
 	@staticmethod
 	def _load_payload(path: Path, **kwargs) -> Any:
 		return load_yaml(path, **kwargs)
