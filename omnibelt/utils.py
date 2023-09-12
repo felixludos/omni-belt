@@ -22,6 +22,10 @@ def format_readable_number(n, sig_figs):
 
 def human_readable_number(num, significant_figures=3, *, gap='', units=None):
 	# Default units if not provided
+
+	if num is None:
+		return num
+
 	if units is None:
 		units = {
 			"Q": 1_000_000_000_000_000,
