@@ -1,5 +1,5 @@
 
-from typing import Any, Union, Dict, List, Set, Tuple, NoReturn, ClassVar, TextIO, Callable
+from typing import Any, Union, Dict, List, Set, Tuple, NoReturn, ClassVar, TextIO, Callable, Optional
 
 import base64
 from cryptography.hazmat.backends import default_backend
@@ -10,15 +10,18 @@ import hashlib
 
 from collections import OrderedDict
 
+from .typing import unspecified_argument
 from .packing import json_pack, json_unpack, SERIALIZABLE, PACKED, JSONABLE
 from .errors import WrongKeyError, UnknownUserError, UnknownActionError, InsufficientPermissionsError
 from cryptography.fernet import Fernet, InvalidToken, InvalidSignature
-from crypt import crypt, mksalt
+# from crypt import crypt, mksalt
+# from passlib.hash import bcrypt
+import bcrypt
 from getpass import getpass
 # from hmac import compare_digest
 
+# _old_master_salt = '6FwLrxJb5mTPVwthumpackMASTERsalt'
 
-_master_salt = '6FwLrxJb5mTPVwthumpackMASTERsalt'
 
 def format_key(hsh: Union[str, bytes]) -> bytes:
 	'''
@@ -33,13 +36,13 @@ def format_key(hsh: Union[str, bytes]) -> bytes:
 	kdf = PBKDF2HMAC(
 		algorithm=hashes.SHA256(),
 		length=32,
-		salt=_master_salt.encode('latin1'),
+		salt=_new_master_salt.encode('latin1'),
 		iterations=100000,
 		backend=default_backend(),
 	)
 	return base64.urlsafe_b64encode(kdf.derive(hsh))
 
-def secure_key(word: str, salt: str = None) -> str:
+def secure_key(word: str, salt: str = unspecified_argument) -> str:
 	'''
 	Get a hash from the raw text password
 	
@@ -47,10 +50,48 @@ def secure_key(word: str, salt: str = None) -> str:
 	:param salt: random salt to seed the hash computation
 	:return: hash of the password
 	'''
-	if salt is None:
-		salt = _master_salt
-	hsh = crypt(word, salt)
-	return hsh
+	salt = _new_master_salt if salt is unspecified_argument else generate_salt(salt)
+
+	# hsh = bcrypt.using(salt=salt).hash(word) # using passlib
+	if isinstance(word, str):
+		word = word.encode('latin1')
+
+	hsh = bcrypt.hashpw(word, salt.encode('latin1'))
+	return hsh.decode('latin1')
+
+
+def generate_salt(seed: Optional[str] = None) -> str:
+	'''
+	Generate a random salt for use in hash computation
+	'''
+	base = bcrypt.gensalt().decode('latin1')
+	if seed is None:
+		return base
+
+	pad = b'>\x98\xee\xe4\\\x88Ag\xb3\xb2\xc0\xa7\xa3#zf'
+
+	seed = seed.encode('latin1')
+	chunks = [seed[i:i + 16] for i in range(0, len(seed), 16)]
+	if len(chunks):
+		if len(chunks[-1]) < 16:
+			chunks[-1] += pad[len(chunks[-1]):]
+
+		saltseed = chunks[0]
+		for chunk in chunks[1:]:
+			saltseed ^= chunk
+	else:
+		saltseed = pad
+
+	endterm = base64.urlsafe_b64encode(saltseed).decode('latin1')
+
+	terms = base.split('$')
+	assert len(terms) == 4
+	return '$'.join([terms[0], terms[1], terms[2], endterm])
+
+_new_master_salt = generate_salt('') # deterministic
+_instance_master_salt = generate_salt() # random
+
+
 
 def prompt_password_hash(salt: str = None) -> str:
 	'''
@@ -60,7 +101,7 @@ def prompt_password_hash(salt: str = None) -> str:
 	:return: hash of the entered password
 	'''
 	if salt is None:
-		salt = _master_salt
+		salt = _new_master_salt
 	hsh = secure_key(getpass(), salt=salt)
 	return hsh
 
