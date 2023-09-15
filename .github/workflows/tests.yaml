@@ -19,10 +19,6 @@ jobs:
       run: |
         pip install pytest pytest-github-actions-annotate-failures
 
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-
     - name: Install package
       run: |
         pip install .
