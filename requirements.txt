@@ -1,4 +1,5 @@
-pyyaml
-dill
-wrapt
+pyyaml>=6.0.1
+dill>=0.3.7
+wrapt>=1.15.0
 indexed==1.3.0
+tqdm>=4.65.0

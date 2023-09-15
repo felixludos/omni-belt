@@ -1,3 +1,4 @@
+__version__ = '0.8.0'
 
 from .flow import safe_self_execute, multi_index, cwd, include_modules, lengen
 from .logging import get_printer, get_global_setting, get_global_settings, set_global_setting, set_printer_setting
@@ -48,12 +49,4 @@ from .basic_containers import containerify
 
 from .structured import TreeSpace, Table, Key_Table
 
-import os
-__info__ = {'__file__':os.path.join(os.path.abspath(os.path.dirname(__file__)), '_info.py')}
-with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '_info.py'), 'r') as f:
-	exec(f.read(), __info__)
-del os
-del __info__['__file__']
-__author__ = __info__['author']
-__version__ = __info__['version']
 
