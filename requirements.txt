@@ -1,8 +1,4 @@
 pyyaml
 dill
 wrapt
-bcrypt
-passlib
-cryptography
-numpy>=1.14
 indexed==1.3.0
