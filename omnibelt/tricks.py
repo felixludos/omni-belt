@@ -1251,36 +1251,31 @@ def extract_function_signature(fn: Union[Callable, Type],
 				fixed_args.append(args[arg_idx])
 				arg_idx += 1
 			else:
-				try:
-					if default_fn is None:
-						raise KeyError
-					val = default_fn(n, p.default)
-				except KeyError:
+				if default_fn is None:
 					if p.default is p.empty:
 						missing.append(p)
+					else:
+						fixed_args.append(p.default)
 				else:
+					val = default_fn(n, p.default)
 					fixed_args.append(val)
+
 		elif p.kind == p.VAR_POSITIONAL:
 			if force_no_positional:
 				raise TypeError(f'Function {fn.__name__} has variable positional arguments ({n})')
 				# continue
-			try:
-				if default_fn is None:
-					raise KeyError
-				val = default_fn(n, p.default)
-			except KeyError:
+			if default_fn is None:
 				fixed_args.extend(args[arg_idx:])
 				arg_idx = len(args)
 			else:
+				val = default_fn(n, [])
 				fixed_args.extend(val)
+
 		elif p.kind == p.VAR_KEYWORD:
-			try:
-				if default_fn is None:
-					raise KeyError
-				val = default_fn(n, p.default)
-			except KeyError:
+			if default_fn is None:
 				fixed_kwargs.update(kwargs)
 			else:
+				val = default_fn(n, {})
 				fixed_kwargs.update(val)
 
 		else:
@@ -1293,18 +1288,13 @@ def extract_function_signature(fn: Union[Callable, Type],
 				fixed_kwargs[n] = args[arg_idx]
 				arg_idx += 1
 			else:
-				try:
-					if default_fn is None:
-						raise KeyError
-					val = default_fn(n, p.default)
-				except KeyError:
+				if default_fn is None:
 					if p.default is p.empty:
 						missing.append(p)
-					# if p.default is p.empty:
-					# 	raise TypeError(f'Argument {n} is missing')
-					# print(n, p.default)
-					pass
+					else:
+						fixed_kwargs[n] = p.default
 				else:
+					val = default_fn(n, p.default)
 					fixed_kwargs[n] = val
 	if include_missing:
 		return fixed_args, fixed_kwargs, missing
