@@ -48,6 +48,24 @@ def ordered_dump(data, stream=None, Dumper=yaml.Dumper, **kwds):
 
 # usage:
 # ordered_dump(data, Dumper=yaml.SafeDumper)
+import io
+
+def yaml_str(data, ordered=False, default_flow_style=None, **kwargs):
+	bf = io.StringIO()
+	if ordered:
+		out = ordered_dump(data, stream=bf, Dumper=yaml.SafeDumper,
+							default_flow_style=default_flow_style, **kwargs)
+	else:
+		out = yaml.safe_dump(data, bf, default_flow_style=default_flow_style, **kwargs)
+	return bf.getvalue()
+
+
+def load_csv_rows(path):
+	import pandas as pd
+	tbl = pd.read_csv(path)
+	for _, row in tbl.iterrows():
+		yield row.to_dict()
+
 
 def load_yaml(path, ordered=False):
 	path = str(path)
