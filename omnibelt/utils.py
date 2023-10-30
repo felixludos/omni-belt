@@ -2,11 +2,16 @@
 # from omnibelt import safe_self_execute
 
 from typing import Iterator, Hashable
-
+import sys
 from collections import OrderedDict
 from string import Formatter
 from tqdm import tqdm
 from tqdm.notebook import tqdm as tqdm_notebook
+
+
+
+def is_pycharm_debugger_running():
+	return 'pydevd' in sys.modules
 
 
 def format_readable_number(n, sig_figs):
