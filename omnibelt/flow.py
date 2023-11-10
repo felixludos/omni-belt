@@ -3,7 +3,11 @@ import sys, os
 import importlib
 from pathlib import Path
 
+from .logging import get_printer
+
 from collections import OrderedDict
+
+prt = get_printer(__name__)
 
 def multi_index(obj, *inds):
 	if len(inds):
@@ -93,19 +97,20 @@ def include_modules(*modules: str, root=None, allow_local=False):
 			name = mod.stem if isinstance(mod, Path) else mod
 			with cwd(path):
 				if name not in sys.modules:
-					# prt.debug(f'Importing {name}')
+					prt.debug(f'Importing {name}')
 					out = importlib.import_module(name)
 				else:
-					# prt.debug(f'Reloading {name}')
+					prt.debug(f'Reloading {name}')
 					out = importlib.reload(sys.modules[name])
 				new = {k: v for k, v in sys.modules.items() if k not in world}
 				loaded[mod] = (out, new.copy())
 				all_new.update(new)
 				world.update(new.keys())
 
-	if not allow_local and root is not None:
-		for n, m in filter_local_modules(root, all_new):
-			del sys.modules[n]
+	# TODO: removed to enable multiprocessing - was it necessary in the first place?
+	# if not allow_local and root is not None:
+	# 	for n, m in filter_local_modules(root, all_new):
+	# 		del sys.modules[n]
 
 	return loaded
 
