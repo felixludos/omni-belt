@@ -15,7 +15,7 @@ from .registries import Registry, Entry_Registry, Named_Registry, Class_Registry
 from .logic import sort_by, resolve_order, toposort, linearize, CycleDetectedError
 from .hashing import Hashable, md5
 from .utils import (human_readable_number, sign, split_dict, filter_duplicates, expression_format,
-					pformat, tqdmd, tqdmd_notebook, is_pycharm_debugger_running)
+					pformat, pformat_vars, tqdmd, tqdmd_notebook, is_pycharm_debugger_running)
 from .ordered_set import OrderedSet
 from .farming import WorkerPool
 from .exporting import AbstractExporter, AbstractExportManager, SimpleExporterBase
