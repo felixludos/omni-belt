@@ -214,16 +214,17 @@ class PowerFormatter(Formatter):
 		visitor.visit(tree)
 		return list(visitor.variables)
 
-	def variables(self, s):
+	def variables(self, s: str, /, allow_repeats=False):
 		nodes = self.parse_bracket_tree(s)
 		past = set()
 		for start, end, children in nodes:
 			if children is None:
 				continue
 			elif len(children):
-				for var in self.variables(s[start + 1:end]):
+				for var in self.variables(s[start + 1:end], allow_repeats=allow_repeats):
 					if var not in past:
-						past.add(var)
+						if not allow_repeats:
+							past.add(var)
 						yield var
 			else:
 				content, spec, conv = self.parse_field(s[start + 1:end])
@@ -233,7 +234,8 @@ class PowerFormatter(Formatter):
 					continue
 				for var in vars:
 					if var not in past:
-						past.add(var)
+						if not allow_repeats:
+							past.add(var)
 						yield var
 
 
@@ -269,14 +271,14 @@ def pformat(s: str, /, *srcs: dict[str, Any], **manual: Any):
 
 
 
-def pformat_vars(s: str):
+def pformat_vars(s: str, /, allow_repeats=False):
 	"""
 	Returns the variables in the given string as expressions (recursively)
 
 	See `pformat` doc for more details.
 	"""
 	fmt = PowerFormatter()
-	yield from fmt.variables(s)
+	yield from fmt.variables(s, allow_repeats=allow_repeats)
 
 
 
