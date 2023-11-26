@@ -1,3 +1,4 @@
+from typing import Iterable
 import sys, os
 from pathlib import Path
 import json
@@ -21,6 +22,125 @@ def monkey_patch(cls, module=None, include_mp=True):
 	
 	setattr(module, cls.__name__, cls)
 	cls.__module__ = module.__name__
+
+
+
+class pathfinder:
+	"""
+	A class to find and validate paths based on given parameters.
+
+	Attributes:
+		my_name (str): A name for the pathfinder instance, used for debugging/printing.
+		default_stem (str): The default stem to use when searching for paths.
+		default_suffix (str): The default suffix to use when searching for paths.
+		default_dir (str): The default directory to search within.
+		use_best (bool): If True, use the best match according to _score_path method.
+		recursive (bool): If True, search recursively within directories.
+		must_exist (bool): If True, only return paths that exist.
+	"""
+
+
+	def __init__(self, finder_name: str = None, *, default_stem=None, default_suffix=None, default_dir=None,
+				 recursive=False, must_exist=False, use_best=False):
+		"""
+		The constructor for pathfinder class.
+
+		Parameters:
+			finder_name (str): A name for the pathfinder instance, used for debugging/printing.
+			default_stem (str): The default stem to use when searching for paths.
+			default_suffix (str): The default suffix to use when searching for paths.
+			default_dir (str): The default directory to search within.
+			use_best (bool): If True, use the best match according to _score_path method.
+			recursive (bool): If True, search recursively within directories.
+			must_exist (bool): If True, only return paths that exist.
+		"""
+		self.my_name = finder_name
+		self.default_stem = default_stem
+		self.default_suffix = default_suffix
+		self.default_dir = default_dir
+		self.use_best = use_best
+		self.recursive = recursive
+		self.must_exist = must_exist
+
+
+	def __str__(self):
+		"""
+		Returns a string representation of the pathfinder instance.
+		"""
+		name = self.my_name or self.__class__.__name__
+		filename = f'{self.default_stem or ""}*{self.default_suffix or ""}' \
+			if self.default_stem or self.default_suffix else None
+		info = f'{Path(self.default_dir or ".") / filename}' if filename else f'{self.default_dir or "."}'
+		return f'{name}({info})'
+
+
+	def valid_path(self, path: Path):
+		"""
+		Checks if a path is valid.
+
+		Parameters:
+			path (Path): The path to check.
+
+		Returns:
+			bool: True if the path is valid, False otherwise.
+		"""
+		return not self.must_exist or path.exists()
+
+
+	@staticmethod
+	def _select_path(candidates: Iterable[Path]) -> Path | None:
+		"""
+		    Selects the first path from the given iterable of paths.
+
+		    Parameters:
+		        candidates (Iterable[Path]): An iterable of paths to select from.
+
+		    Returns:
+		        Path: The first path from the given iterable, or None if the iterable is empty.
+		"""
+		try:
+			return next(iter(candidates))
+		except StopIteration:
+			return None
+
+
+	def __call__(self, name: str = None, *, path: str | Path = None,
+				 root: str | Path = None, ext: str = None) -> Path:
+		"""
+		Finds and validates a path based on the given parameters.
+
+		Parameters:
+			name (str): The name of the file to search for (should generally just be the stem).
+			path (str | Path): The path to search within.
+			root (str | Path): The root directory to search within.
+			ext (str): The file extension to search for.
+
+		Returns:
+			Path: The found and validated path.
+
+		Raises:
+			ValueError: If neither `name` nor `path` are provided.
+			FileNotFoundError: If no path is found or if the found path is invalid.
+		"""
+		if path is None:
+			name = name or self.default_stem
+			if name is None:
+				raise ValueError(f'Either `name` or `path` must be provided to {self}')
+			suffix = ext or self.default_suffix or ''
+			name = name or self.default_stem
+			root = root or self.default_dir or '.'
+			root = Path(root)
+			query = f'{"**/" if self.recursive else ""}{name}*{suffix}'
+			path = self._select_path(root.glob(query))
+			if path is None:
+				raise FileNotFoundError(f'No path found for {name!r} (in {root})')
+			path = Path(path)
+		path = Path(path)
+		if not self.valid_path(path):
+			raise FileNotFoundError(f'{path} is invalid')
+		return path
+
+
 
 def ordered_load(stream, Loader=yaml.Loader, object_pairs_hook=OrderedDict):
 	class OrderedLoader(Loader):
@@ -81,7 +201,7 @@ def save_yaml(data, path, ordered=False, default_flow_style=None, **kwargs):
 	with open(path, 'w') as f:
 		if ordered:
 			return ordered_dump(data, stream=f, Dumper=yaml.SafeDumper,
-			                    default_flow_style=default_flow_style, **kwargs)
+								default_flow_style=default_flow_style, **kwargs)
 		return yaml.safe_dump(data, f, default_flow_style=default_flow_style, **kwargs)
 
 
@@ -235,7 +355,7 @@ class Persistent:
 
 
 	def update_datafile(self, ident, data, root=None, overwrite=True, skip_save=False,
-	                    ext=unspecified_argument, **kwargs):
+						ext=unspecified_argument, **kwargs):
 		fixed, *suffix = ident.split('.')
 		if ext is None and len(suffix):
 			ext = '.'.join(suffix)
@@ -247,7 +367,7 @@ class Persistent:
 
 
 	def get_datafile(self, ident, root=None, ext=unspecified_argument, force_load=False, skip_cache=False,
-	                 default=unspecified_argument, **kwargs):
+					 default=unspecified_argument, **kwargs):
 		fixed, *suffix = ident.split('.')
 		if ext is None and len(suffix):
 			ext = '.'.join(suffix)
@@ -276,7 +396,7 @@ class Persistent:
 		if datafiles is None:
 			datafiles = self._datafiles
 		return {name: self.update_datafile(name, value, root=root, overwrite=overwrite, ext=ext, **kwargs)
-		        for name, value in datafiles.items()}
+				for name, value in datafiles.items()}
 
 
 
@@ -284,7 +404,7 @@ class HierarchyPersistent(Persistent):
 
 
 	def _save_datafile(self, data, path, ext=unspecified_argument, overwrite=False,
-	                  separate_dict=True, recursive=False, **kwargs):
+					  separate_dict=True, recursive=False, **kwargs):
 		top = None if separate_dict and isinstance(data, dict) else ext
 		path = self._get_datafile_path(path, ext=top)
 
@@ -292,7 +412,7 @@ class HierarchyPersistent(Persistent):
 			path.mkdir(exist_ok=True)
 			for key, value in data.items():
 				self._save_datafile(value, path=path / key, overwrite=overwrite,
-				                   separate_dict=separate_dict and recursive, recursive=recursive, **kwargs)
+								   separate_dict=separate_dict and recursive, recursive=recursive, **kwargs)
 			return path
 		return super()._save_datafile(data, path=path, ext=None, overwrite=overwrite, **kwargs)
 
@@ -304,7 +424,7 @@ class HierarchyPersistent(Persistent):
 		path = self._get_datafile_path(path=path, ext=ext)
 		if path.is_dir():
 			return {p.stem.split('.')[0]: self._load_datafile(path=p, delimiter=delimiter, **kwargs)
-			        for p in path.glob('*')}
+					for p in path.glob('*')}
 		return super()._load_datafile(path=path, ext=None, **kwargs)
 
 

@@ -7,7 +7,7 @@ from .typing import primitives, unspecified_argument, join_classes, replace_clas
 	conditional_method, lambda_conditional_method, agnosticmethod, agnostic, agnosticproperty, isiterable
 from .filesystem import create_dir, crawl, spawn_path_options, load_yaml, save_yaml, \
 	load_csv, load_tsv, load_json, save_json, monkey_patch, load_txt, save_txt, Persistent, HierarchyPersistent, \
-	load_pickle, save_pickle, load_csv_rows, yaml_str
+	load_pickle, save_pickle, load_csv_rows, yaml_str, pathfinder
 from .timing import get_now, recover_date
 from .patterns import Singleton, InitWall, Service
 from .containers import deep_get, Simple_Child, Proper_Child, AttrDict, AttrOrdDict, Value, LoadedValue, Named
