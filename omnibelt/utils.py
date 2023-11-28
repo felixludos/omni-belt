@@ -184,11 +184,11 @@ class PowerFormatter(Formatter):
 		vars = self._expression_variables(expr)
 		scope = {}
 		for key in vars:
-			for src in args:
+			for src in [*args, kwargs]:
 				if key in src:
 					scope[key] = src[key]
-			else:
-				scope[key] = kwargs[key]
+			if key not in scope:
+				raise KeyError(f'Variable {key!r} not found in provided args or kwargs')
 		return scope
 
 	def get_field(self, field_name, args, kwargs):

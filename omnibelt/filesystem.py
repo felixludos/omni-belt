@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Callable
 import sys, os
 from pathlib import Path
 import json
@@ -41,7 +41,7 @@ class pathfinder:
 
 
 	def __init__(self, finder_name: str = None, *, default_stem=None, default_suffix=None, default_dir=None,
-				 recursive=False, must_exist=False, use_best=False):
+				 recursive=False, must_exist=False, use_best=False, validate: Callable[[Path], bool] = None):
 		"""
 		The constructor for pathfinder class.
 
@@ -53,6 +53,7 @@ class pathfinder:
 			use_best (bool): If True, use the best match according to _score_path method.
 			recursive (bool): If True, search recursively within directories.
 			must_exist (bool): If True, only return paths that exist.
+			validate (Callable[[Path], bool]): A function to validate paths with.
 		"""
 		self.my_name = finder_name
 		self.default_stem = default_stem
@@ -61,6 +62,7 @@ class pathfinder:
 		self.use_best = use_best
 		self.recursive = recursive
 		self.must_exist = must_exist
+		self._validate_fn = validate
 
 
 	def __str__(self):
@@ -84,7 +86,7 @@ class pathfinder:
 		Returns:
 			bool: True if the path is valid, False otherwise.
 		"""
-		return not self.must_exist or path.exists()
+		return (not self.must_exist or path.exists()) and (self._validate_fn is None or self._validate_fn(path))
 
 
 	@staticmethod
