@@ -185,8 +185,12 @@ class PowerFormatter(Formatter):
 		scope = {}
 		for key in vars:
 			for src in [*args, kwargs]:
-				if key in src:
+				try:
 					scope[key] = src[key]
+				except KeyError:
+					pass
+				else:
+					break
 			if key not in scope:
 				raise KeyError(f'Variable {key!r} not found in provided args or kwargs')
 		return scope
