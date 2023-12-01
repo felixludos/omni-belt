@@ -1258,7 +1258,10 @@ def extract_function_signature(fn: Union[Callable, Type],
 						fixed_args.append(p.default)
 				else:
 					val = default_fn(n, p.default)
-					fixed_args.append(val)
+					if val is p.empty:
+						missing.append(p)
+					else:
+						fixed_args.append(val)
 
 		elif p.kind == p.VAR_POSITIONAL:
 			if force_no_positional:
@@ -1295,7 +1298,10 @@ def extract_function_signature(fn: Union[Callable, Type],
 						fixed_kwargs[n] = p.default
 				else:
 					val = default_fn(n, p.default)
-					fixed_kwargs[n] = val
+					if val is p.empty:
+						missing.append(p)
+					else:
+						fixed_kwargs[n] = val
 	if include_missing:
 		return fixed_args, fixed_kwargs, missing
 	if allow_positional:
