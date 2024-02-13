@@ -16,7 +16,7 @@ def multi_index(obj, *inds):
 	return obj
 
 def safe_self_execute(obj, fn, default='<<short circuit>>',
-                      flag='safe execute flag'):
+					  flag='safe execute flag'):
 	if flag in obj.__dict__:
 		return default  # short circuit
 	obj.__dict__[flag] = True
@@ -73,7 +73,27 @@ def filter_local_modules(path, modules):
 
 
 
-def include_modules(*modules: str, root=None, allow_local=False):
+def find_submodules(module):
+	"""Identify submodules of a given module."""
+	submodules = []
+	base_path = Path(module.__file__).parent
+	for attribute_name in dir(module):
+		attribute = getattr(module, attribute_name)
+		if hasattr(attribute, '__file__'):
+			attribute_path = Path(attribute.__file__).parent
+			if base_path == attribute_path or base_path in attribute_path.parents:
+				submodules.append(attribute)
+	return submodules
+
+
+def reload_module_recursively(module):
+	"""Reload a module and all its submodules."""
+	importlib.reload(module)
+	for submodule in find_submodules(module):
+		reload_module_recursively(submodule)
+
+
+def include_modules(*modules: str, root=None, allow_local=False, package_name=None):
 	'''
 	Imports modules based on their names/paths
 
@@ -91,6 +111,8 @@ def include_modules(*modules: str, root=None, allow_local=False):
 	world = set(sys.modules.keys())
 	all_new = dict()
 
+	package_name = None
+
 	with cwd(root):
 		for mod in modules:
 			path = mod.parent if isinstance(mod, Path) else None
@@ -98,10 +120,26 @@ def include_modules(*modules: str, root=None, allow_local=False):
 			with cwd(path):
 				if name not in sys.modules:
 					prt.debug(f'Importing {name}')
-					out = importlib.import_module(name)
+					out = importlib.import_module(name, package_name)
 				else:
-					prt.debug(f'Reloading {name}')
-					out = importlib.reload(sys.modules[name])
+					existing_module = sys.modules[name]
+					if Path(existing_module.__file__).parent.parent.absolute() == Path().absolute():
+						# Reload the existing module and its submodules
+						prt.debug(f'Reloading {name}')
+						reload_module_recursively(existing_module)
+					else:
+						# Replace the module and reload it along with its submodules
+						prt.debug(f'Replacing {name} (previously {sys.modules[name].__file__!r})')
+						del sys.modules[name]
+						new_module = importlib.import_module(name, package_name)
+						reload_module_recursively(new_module)
+				# elif Path(sys.modules[name].__file__).parent.parent.absolute() == Path().absolute():
+				# 	prt.debug(f'Reloading {name}')
+				# 	out = importlib.reload(sys.modules[name])
+				# else:
+				# 	prt.debug(f'Replacing {name} (previously {sys.modules[name].__file__!r})')
+				# 	del sys.modules[name]
+				# 	out = importlib.import_module(name, package_name)
 				new = {k: v for k, v in sys.modules.items() if k not in world}
 				loaded[mod] = (out, new.copy())
 				all_new.update(new)

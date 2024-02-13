@@ -1219,6 +1219,7 @@ def args2kwargs(fn: Callable, args: Tuple = None, kwargs: Dict[str, Any] = None,
 def extract_function_signature(fn: Union[Callable, Type],
                                args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None, *,
                                default_fn: Callable[[str, Any], Any] = None, include_missing: bool = False,
+							   allow_rest: bool = True,
                                allow_positional: bool = True, force_no_positional: bool = False, skip_first=None) \
 		-> Union[Tuple[List[Any], Dict[str, Any], List[inspect.Parameter]],
 		         Tuple[List[Any], Dict[str, Any]],
@@ -1240,6 +1241,8 @@ def extract_function_signature(fn: Union[Callable, Type],
 	arg_idx = 0
 	fixed_args = []
 	fixed_kwargs = {}
+
+	collect_rest = False
 
 	missing = []
 
@@ -1275,6 +1278,7 @@ def extract_function_signature(fn: Union[Callable, Type],
 				fixed_args.extend(val)
 
 		elif p.kind == p.VAR_KEYWORD:
+			collect_rest = True
 			if default_fn is None:
 				fixed_kwargs.update(kwargs)
 			else:
@@ -1302,6 +1306,10 @@ def extract_function_signature(fn: Union[Callable, Type],
 						missing.append(p)
 					else:
 						fixed_kwargs[n] = val
+
+	if collect_rest and allow_rest:
+		fixed_kwargs.update(kwargs)
+
 	if include_missing:
 		return fixed_args, fixed_kwargs, missing
 	if allow_positional:
