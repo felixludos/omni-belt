@@ -1,4 +1,4 @@
-__version__ = '0.8.1'
+__version__ = '0.8.2'
 
 from .flow import safe_self_execute, multi_index, cwd, include_modules, lengen
 from .logging import get_printer, get_global_setting, get_global_settings, set_global_setting, set_printer_setting
