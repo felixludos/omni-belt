@@ -1,6 +1,6 @@
-__version__ = '0.8.2'
+__version__ = '0.8.3'
 
-from .flow import safe_self_execute, multi_index, cwd, include_modules, lengen
+from .flow import safe_self_execute, multi_index, cwd, include_module, lengen
 from .logging import get_printer, get_global_setting, get_global_settings, set_global_setting, set_printer_setting
 from .typing import primitives, unspecified_argument, join_classes, replace_class, \
 	duplicate_class, duplicate_func, duplicate_instance, wrap_class, mix_into, \
