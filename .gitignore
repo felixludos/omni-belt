@@ -3,3 +3,4 @@ dist/
 omnibelt.egg-info/
 __pycache__/
 local_data/
+.vscode/
