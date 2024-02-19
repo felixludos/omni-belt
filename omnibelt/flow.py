@@ -73,27 +73,7 @@ def filter_local_modules(path, modules):
 
 
 
-def find_submodules(module):
-	"""Identify submodules of a given module."""
-	submodules = []
-	base_path = Path(module.__file__).parent
-	for attribute_name in dir(module):
-		attribute = getattr(module, attribute_name)
-		if hasattr(attribute, '__file__'):
-			attribute_path = Path(attribute.__file__).parent
-			if base_path == attribute_path or base_path in attribute_path.parents:
-				submodules.append(attribute)
-	return submodules
-
-
-def reload_module_recursively(module):
-	"""Reload a module and all its submodules."""
-	importlib.reload(module)
-	for submodule in find_submodules(module):
-		reload_module_recursively(submodule)
-
-
-def include_modules(*modules: str, root=None, allow_local=False, package_name=None):
+def include_module(module: str, root=None, allow_local=False):
 	'''
 	Imports modules based on their names/paths
 
@@ -106,51 +86,27 @@ def include_modules(*modules: str, root=None, allow_local=False, package_name=No
 		:code:`None`
 
 	'''
-	loaded = OrderedDict()
-
 	world = set(sys.modules.keys())
 	all_new = dict()
 
-	package_name = None
-
 	with cwd(root):
-		for mod in modules:
-			path = mod.parent if isinstance(mod, Path) else None
-			name = mod.stem if isinstance(mod, Path) else mod
-			with cwd(path):
-				if name not in sys.modules:
-					prt.debug(f'Importing {name}')
-					out = importlib.import_module(name, package_name)
-				else:
-					existing_module = sys.modules[name]
-					if Path(existing_module.__file__).parent.parent.absolute() == Path().absolute():
-						# Reload the existing module and its submodules
-						prt.debug(f'Reloading {name}')
-						reload_module_recursively(existing_module)
-					else:
-						# Replace the module and reload it along with its submodules
-						prt.debug(f'Replacing {name} (previously {sys.modules[name].__file__!r})')
-						del sys.modules[name]
-						new_module = importlib.import_module(name, package_name)
-						reload_module_recursively(new_module)
-				# elif Path(sys.modules[name].__file__).parent.parent.absolute() == Path().absolute():
-				# 	prt.debug(f'Reloading {name}')
-				# 	out = importlib.reload(sys.modules[name])
-				# else:
-				# 	prt.debug(f'Replacing {name} (previously {sys.modules[name].__file__!r})')
-				# 	del sys.modules[name]
-				# 	out = importlib.import_module(name, package_name)
-				new = {k: v for k, v in sys.modules.items() if k not in world}
-				loaded[mod] = (out, new.copy())
-				all_new.update(new)
-				world.update(new.keys())
+		path = module.parent if isinstance(module, Path) else None
+		name = module.stem if isinstance(module, Path) else module
+		with cwd(path):
+			if name in sys.modules:
+				prt.debug(f'Reloading {name}')
+				out = importlib.reload(sys.modules[name])
+			else:
+				prt.debug(f'Importing {name}')
+				out = importlib.import_module(name)
 
 	# TODO: removed to enable multiprocessing - was it necessary in the first place?
 	# if not allow_local and root is not None:
 	# 	for n, m in filter_local_modules(root, all_new):
 	# 		del sys.modules[n]
 
-	return loaded
+	new = {k: v for k, v in sys.modules.items() if k not in world}
+	return out, new
 
 
 
