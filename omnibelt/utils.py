@@ -192,7 +192,10 @@ class PowerFormatter(Formatter):
 				else:
 					break
 			if key not in scope:
-				raise KeyError(f'Variable {key!r} not found in provided args or kwargs')
+				if key in __builtins__:
+					scope[key] = __builtins__[key]
+				else:
+					raise KeyError(f'Variable {key!r} not found in provided args or kwargs')
 		return scope
 
 	def get_field(self, field_name, args, kwargs):
