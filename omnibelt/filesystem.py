@@ -182,11 +182,15 @@ def yaml_str(data, ordered=False, default_flow_style=None, **kwargs):
 	return bf.getvalue()
 
 
-def load_csv_rows(path):
+def load_csv_rows(path, **kwargs):
 	import pandas as pd
-	tbl = pd.read_csv(path)
+	tbl = pd.read_csv(path, **kwargs)
 	for _, row in tbl.iterrows():
-		yield row.to_dict()
+		data = row.to_dict()
+		for k, v in data.items():
+			if v != v:
+				data[k] = None
+		yield data
 
 
 def load_yaml(path, ordered=False):
