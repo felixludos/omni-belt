@@ -23,7 +23,7 @@ from .exporting import export, load_export, set_export_manager, ExportManager
 from .tricks import self_aware, clsdec, innerchild, method_wrapper, ClassDescriptable, classdescriptor, \
 	extract_function_signature, capturable_super, captured_super, auto_init, dynamic_capture, \
 	smartproperty, autoproperty, referenceproperty, defaultproperty, TrackSmart, Tracer, \
-	Modifiable, inject_modifiers, ClassHierarchy, method_decorator, args2kwargs
+	Modifiable, inject_modifiers, ClassHierarchy, method_decorator, args2kwargs, extract_missing_args
 from .propagators import method_propagator
 from .operators import operation_base, auto_operation, Operationalized, DecoratedOperational, \
 	AbstractOperational, AbstractOperator

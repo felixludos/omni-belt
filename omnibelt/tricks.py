@@ -1319,6 +1319,20 @@ def extract_function_signature(fn: Union[Callable, Type],
 
 
 
+def extract_missing_args(fn: Union[Callable, Type],
+                               args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None, *,
+                               allow_rest: bool = True, including_existing: bool = True, skip_first=None) \
+		-> Union[List[inspect.Parameter], Tuple[List[inspect.Parameter], Dict[str, Any]]]:
+
+	empty_args, existing, missing = extract_function_signature(fn, args, kwargs, include_missing=True,
+															   allow_rest=allow_rest, skip_first=skip_first,
+															   force_no_positional=True)
+	assert len(empty_args) == 0
+	if including_existing:
+		return missing, existing
+	return missing
+
+
 # class Property(object):
 #     "Emulate PyProperty_Type() in Objects/descrobject.c"
 #
