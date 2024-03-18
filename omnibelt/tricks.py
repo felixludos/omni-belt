@@ -1318,6 +1318,17 @@ def extract_function_signature(fn: Union[Callable, Type],
 	return fixed_kwargs
 
 
+def extract_missing_args(fn: Union[Callable, Type], args=None, kwargs=None, *, include_existing=False, skip_first=None):
+	empty_args, existing, missing = extract_function_signature(fn, args, kwargs, include_missing=True,
+															   allow_positional=False, allow_rest=True,
+															   force_no_positional=True, skip_first=skip_first)
+	assert len(empty_args) == 0
+
+	if include_existing:
+		return existing, missing
+	return missing
+
+
 
 def extract_missing_args(fn: Union[Callable, Type],
                                args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None, *,

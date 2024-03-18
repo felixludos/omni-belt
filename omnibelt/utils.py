@@ -1,6 +1,7 @@
 
 # from omnibelt import safe_self_execute
 import re
+import builtins
 import ast
 from typing import Iterator, Hashable, Any
 import sys
@@ -83,8 +84,14 @@ def expression_format(s, **vars):
 	return s.format(**vals)
 
 
+_builtin_vars = dir(builtins)
 
 class PowerFormatter(Formatter):
+	@staticmethod
+	def _ignore_variable(var: str):
+		return var in _builtin_vars
+
+
 	def parse(self, s):
 		nodes = self.parse_bracket_tree(s)
 
@@ -229,7 +236,7 @@ class PowerFormatter(Formatter):
 				continue
 			elif len(children):
 				for var in self.variables(s[start + 1:end], allow_repeats=allow_repeats):
-					if var not in past:
+					if var not in past and not self._ignore_variable(var):
 						if not allow_repeats:
 							past.add(var)
 						yield var
@@ -240,7 +247,7 @@ class PowerFormatter(Formatter):
 				except SyntaxError:
 					continue
 				for var in vars:
-					if var not in past:
+					if var not in past and not self._ignore_variable(var):
 						if not allow_repeats:
 							past.add(var)
 						yield var
