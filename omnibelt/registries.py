@@ -110,7 +110,7 @@ class Double_Registry(Registry):
 		return x in self or x in self.backward()
 
 
-	def find(self, x, default=unspecified_argument):
+	def find(self, x, default: Any = unspecified_argument):
 		if x in self:
 			return self[x]
 		if x in self.backward():
@@ -165,9 +165,21 @@ class Entry_Double_Registry(Double_Registry, Entry_Registry):
 
 
 	def get_value(self, key, default=unspecified_argument):
-		if default is unspecified_argument:
-			return getattr(self.find(key), self._sister_key_name)
-		return getattr(self.find(key), self._sister_key_name, default)
+		entry = self.find(key, None)
+		if entry is not None:
+			return getattr(entry, self._sister_key_name)
+		if default is not unspecified_argument:
+			return default
+		raise self.NotFoundError(key)
+
+
+	def get_key(self, value, default=unspecified_argument):
+		if value in self.backward():
+			entry = self.backward()[value]
+			return getattr(entry, self._key_name)
+		elif default is not unspecified_argument:
+			return default
+		raise self.NotFoundError(value)
 
 
 	def update(self, other, sync=True):
@@ -263,8 +275,11 @@ class Class_Registry(Entry_Double_Registry, sister_component='cls'):
 		super().__init_subclass__(primary_component='name', sister_component=sister_component,
 		                          components=components, required=required)
 
-	def get_class(self, key, default=unspecified_argument):
-		return self.get_value(key, default=default)
+	def get_class(self, name: str, default=unspecified_argument):
+		return self.get_value(name, default=default)
+
+	def get_name(self, cls: type, default=unspecified_argument):
+		return self.get_key(cls, default=default)
 
 	class DecoratorBase(Entry_Double_Registry.DecoratorBase):
 		def _register(self, val, name=None, **params):
