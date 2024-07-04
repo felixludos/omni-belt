@@ -1,4 +1,4 @@
-from typing import Iterable, Callable
+from typing import Iterable, Callable, Union
 import sys, os
 from pathlib import Path
 import json
@@ -90,7 +90,7 @@ class pathfinder:
 
 
 	@staticmethod
-	def _select_path(candidates: Iterable[Path]) -> Path | None:
+	def _select_path(candidates: Iterable[Path]) -> Union[Path,None]:
 		"""
 		    Selects the first path from the given iterable of paths.
 
@@ -106,8 +106,8 @@ class pathfinder:
 			return None
 
 
-	def __call__(self, name: str = None, *, path: str | Path = None,
-				 root: str | Path = None, ext: str = None) -> Path:
+	def __call__(self, name: str = None, *, path: Union[str, Path] = None,
+				 root: Union[str, Path] = None, ext: str = None) -> Path:
 		"""
 		Finds and validates a path based on the given parameters.
 

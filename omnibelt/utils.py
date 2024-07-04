@@ -3,7 +3,7 @@
 import re
 import builtins
 import ast
-from typing import Iterator, Hashable, Any
+from typing import Iterator, Hashable, Any, Dict, List, Tuple
 import sys
 from collections import OrderedDict
 from string import Formatter
@@ -267,7 +267,7 @@ class PowerFormatter(Formatter):
 
 
 
-def pformat(s: str, /, *srcs: dict[str, Any], **manual: Any):
+def pformat(s: str, /, *srcs: Dict[str, Any], **manual: Any):
 	"""
 	Evaluates the keys in the given string as expressions using the given variables (recursively)
 
