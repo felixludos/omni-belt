@@ -100,7 +100,7 @@ class FileJester:
             children = sorted(children)
         
         if len(children) == 0:
-            raise FileNotFoundError(f"No files found matching the pattern '{pattern}'")
+            raise FileNotFoundError(f"'{pattern}' in {root}")
         if len(children) == 1:
             return root, 1, children[0]
         return root, len(children), children
