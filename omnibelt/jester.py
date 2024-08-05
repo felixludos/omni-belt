@@ -68,48 +68,6 @@ def where_could_i_be():
 
 
 
-def ingest(src: Union[Path, str, Iterable[Union[Path, str]]], *, 
-           recursive: bool = True, lazy: bool = False):
-    if isinstance(src, (str, Path)):
-        src = [src]
-
-    for path in src:
-        if isinstance(path, str):
-            src = Path(path)
-
-        
-
-        pass
-
-    pass
-
-
-def find_matches(pattern: str, case_insensitive: bool = False) -> Union[Path, List[Path]]:
-    path = Path(pattern)
-    
-    # Check if the pattern is a valid path to a file or directory
-    if path.exists():
-        return path
-    
-    # Check if the pattern is a valid glob pattern
-    try:
-        glob_matches = list(Path('.').glob(pattern))
-        if glob_matches:
-            if case_insensitive:
-                return [match for match in glob_matches if re.match(re.escape(pattern), str(match), re.IGNORECASE)]
-            return glob_matches
-    except Exception as e:
-        pass
-    
-    # Treat the pattern as a regex pattern
-    regex_flags = re.IGNORECASE if case_insensitive else 0
-    regex_pattern = re.compile(pattern, regex_flags)
-    all_files = Path('.').rglob('*')
-    
-    regex_matches = [file for file in all_files if regex_pattern.search(str(file))]
-    return regex_matches
-
-
 
 class FileJester:
     def __init__(self, src: Union[Path, str], *, lazy: bool = False):
