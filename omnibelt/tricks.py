@@ -4,7 +4,7 @@ import types
 import inspect
 from collections import OrderedDict
 
-from .typing import unspecified_argument
+from .typelike import unspecified_argument
 
 
 class ClassDescriptable(type):

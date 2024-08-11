@@ -3,7 +3,7 @@ from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, 
 from datetime import datetime, timezone
 from collections import OrderedDict, UserList, UserDict
 from .ordered_set import OrderedSet
-from .typing import agnosticmethod, unspecified_argument
+from .typelike import agnosticmethod, unspecified_argument
 
 
 class OmniStructure:

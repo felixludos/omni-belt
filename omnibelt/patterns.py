@@ -1,5 +1,5 @@
 
-from .typing import unspecified_argument
+from .typelike import unspecified_argument
 
 
 class InitWall:

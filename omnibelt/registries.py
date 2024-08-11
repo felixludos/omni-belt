@@ -2,8 +2,8 @@ from typing import NamedTuple, Dict, Any, Union, Optional, List, Tuple, Callable
 from pathlib import Path
 from collections import OrderedDict, namedtuple
 
-from .typing import unspecified_argument
-from .logging import get_printer
+from .typelike import unspecified_argument
+from .loggers import get_printer
 
 prt = get_printer(__name__)
 

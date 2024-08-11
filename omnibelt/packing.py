@@ -9,7 +9,7 @@ import copy
 
 from .registries import Entry_Double_Registry
 # from .errors import SavableClassCollisionError, ObjectIDReadOnlyError, UnregisteredClassError
-from .logging import get_printer
+from .loggers import get_printer
 
 prt = get_printer(__file__)
 

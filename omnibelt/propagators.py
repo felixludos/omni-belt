@@ -3,7 +3,7 @@ from collections import OrderedDict
 from functools import cached_property
 
 from .tricks import method_decorator
-from .typing import agnostic
+from .typelike import agnostic
 
 
 

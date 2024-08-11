@@ -2,7 +2,7 @@ from typing import Tuple, List, Dict, Optional, Union, Any, Callable, Sequence, 
 
 
 # from .abstract import
-from .typing import agnostic
+from .typelike import agnostic
 
 
 class AbstractCrafty:

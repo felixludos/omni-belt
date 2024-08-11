@@ -3,7 +3,7 @@ import sys, os
 import importlib
 from pathlib import Path
 
-from .logging import get_printer
+from .loggers import get_printer
 
 from collections import OrderedDict
 

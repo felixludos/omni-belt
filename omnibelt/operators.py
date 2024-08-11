@@ -1,7 +1,7 @@
 from typing import Any, Iterator, List, Optional, Tuple, Union, Callable, Type, Dict
 import inspect
 
-from .typing import unspecified_argument
+from .typelike import unspecified_argument
 from .tricks import method_decorator
 from .propagators import universal_propagator
 
