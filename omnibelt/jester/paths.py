@@ -121,8 +121,9 @@ class FileJester:
     def flow(self):
         raise NotImplemented
 
-    pass
 
+def test_jester():
+    pass
 
 
 class AutoFileJester(FileJester):
