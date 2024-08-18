@@ -1,4 +1,5 @@
 from .imports import *
+from .environment import where_am_i
 
 # import h5py as hdf
 # try:

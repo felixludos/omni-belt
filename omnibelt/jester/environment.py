@@ -18,6 +18,13 @@ def where_am_i():
 	if loc is not None:
 		return loc
 
+	try:
+		from IPython import get_ipython
+		if 'IPKernelApp' in get_ipython().config:
+			return 'jupyter'
+	except:
+		pass
+
 	if os.environ.get('JOB_ID', None) is not None:
 		return 'cluster'
 	elif 'COLAB_GPU' in os.environ:
@@ -37,13 +44,6 @@ def where_am_i():
 	elif 'ptvsd' in sys.modules or 'debugpy' in sys.modules:
 		return "vscode"
 
-	try:
-		from IPython import get_ipython
-		if 'IPKernelApp' in get_ipython().config:
-			return 'jupyter'
-	except:
-		pass
-
 	return 'script'
 
 
@@ -54,6 +54,4 @@ def where_could_i_be():
 	return ['jupyter', 'colab', 'cluster', 'ci',
 			# 'aws_lambda', 'spyder', 'jupyterLab',
 			'repl', 'pycharm', 'vscode', 'script']
-
-
 
