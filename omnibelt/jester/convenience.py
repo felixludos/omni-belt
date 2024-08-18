@@ -58,8 +58,8 @@ def view(seq: Iterable[dict[str, Any]], *keys: str | Callable[[dict[str, Any]], 
 
 
 
-def in_batches(seq: Iterable[dict[str, Any]], batch_size: int = 10,
-			   drop_remaining: bool = False, shuffle: bool = False) -> Iterable[dict[str, Any]]:
+def batchify(seq: Iterable[dict[str, Any]], batch_size: int = 10, *,
+			 drop_last: bool = False, shuffle: bool = False) -> Iterable[dict[str, Any]]:
 	if shuffle:
 		seq = list(seq)
 		random.shuffle(seq)
@@ -74,7 +74,7 @@ def in_batches(seq: Iterable[dict[str, Any]], batch_size: int = 10,
 			except StopIteration:
 				if not batch:
 					return
-				if drop_remaining:
+				if drop_last:
 					return
 				break
 		yield batch

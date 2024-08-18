@@ -60,8 +60,33 @@ def test_jester(complex_file_structure):
 
 	jester = FileJester(str(pattern))
 
+	assert jester.remaining == 3
+
 	generated = list(jester)
 
-	print(generated)
+	assert jester.remaining == 0
+
+	paths = [p.relative_to(jester.root) for p in generated]
+
+	print(jester.root)
+	print(paths)
+
+
+
+def test_auto_jester(complex_file_structure):
+	base_path = complex_file_structure
+
+	jester = AutoFileJester(base_path, 'json')
+
+	assert jester.remaining == 3
+
+	generated = list(jester)
+
+	assert jester.remaining == 0
+
+	paths = [p.relative_to(jester.root) for p in generated]
+
+	print(jester.root)
+	print(paths)
 
 	pass
