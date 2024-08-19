@@ -1,5 +1,8 @@
 from .imports import *
+import json, yaml
+import pandas as pd
 from .environment import where_am_i
+from .progress_bar import HierarchicalProgressBar, ProgressBarIterator, CustomProgressBarIterator
 
 # import h5py as hdf
 # try:
@@ -107,7 +110,7 @@ class MultiFileJester(FileJester):
 			src = [src]
 		if not isinstance(src, Path):
 			src = [Path(s) for s in src]
-		super().__init__(src, lazy=lazy)
+		super().__init__(src, lazy=lazy, **kwargs)
 
 
 	def include(self, src: Union[Path, str, Iterable[Union[Path, str]]]):
@@ -123,9 +126,82 @@ class MultiFileJester(FileJester):
 			return super().analyze(src)
 
 		assert isinstance(src, Iterable), "The 'src' parameter must be a Path, str, or Iterable of Paths or strings"
-		roots, counts, branches = zip(*[self.analyze(branch, includeupper=includeupper) for branch in src])
+		roots, counts, branches = zip(*[self.analyze(branch) for branch in src])
 		root = min(roots, key=lambda r: len(str(r)))
-		return root, sum(counts), list(branches)
+		return root, sum(counts), [item for branch in branches for item in branch]
         
+
+
+class Jester(MultiFileJester):
+	_ProgressBar = HierarchicalProgressBar
+
+	class _FileLevel(ProgressBarIterator):
+		def __init__(self, paths: Iterable[Path], root: Path, loader: Callable, **kwargs):
+			super().__init__(paths, **kwargs)
+			self._root = root
+			self._loader = loader
+
+		def get_start_msg(self):
+			return f'Loading {self._total} in {self._root}'
+		def get_finished_msg(self, msg: str = None):
+			return f"Done with {self._total} files in {self._root}"
+
+		def branch(self, item: Path):
+			return self._loader(item)
+
+		def record(self, item: Path):
+			desc = item.relative_to(self._root)
+			self._pbar.set_description(str(desc), refresh=False)
+			self.update()
+
+	class _ItemLevel(CustomProgressBarIterator):
+		def __init__(self, items: Iterable, leave: bool = False, **kwargs):
+			super().__init__(items, leave=leave, **kwargs)
+
+	def __init__(self, src: Union[Path, str, Iterable[Union[Path, str]]], *,
+				 log_file: 'TextIO' = None, file_print_msgs: int = None, item_print_msgs: int = 10,
+				 no_display: bool = None, force_display: bool = None, **kwargs):
+		super().__init__(src, **kwargs)
+		self.pbar = self._ProgressBar()
+		self._log_file = log_file
+		self._no_display = no_display
+		self._force_display = force_display
+		self._file_print_msgs = file_print_msgs
+		self._item_print_msgs = item_print_msgs
+
+	@staticmethod
+	def load(path: Path):
+		if path.suffix == '.json':
+			return json.load(path.open('r'))
+		if path.suffix == '.jsonl':
+			return [json.loads(line) for line in path.open('r') if len(line)]
+
+		if path.suffix == '.yaml':
+			return yaml.load(path.open(), Loader=yaml.FullLoader)
+		if path.suffix == '.yamll':
+			return [yaml.load(line, Loader=yaml.FullLoader) for line in path.open('r') if len(line)]
+
+		if path.suffix == '.csv':
+			df = pd.read_csv(path)
+			return [{k: (None if v != v else v) for k, v in row.items()}
+					for _, row in df.iterrows()]
+		if path.suffix == '.tsv':
+			df = pd.read_csv(path, sep='\t')
+			return [{k: (None if v != v else v) for k, v in row.items()}
+					for _, row in df.iterrows()]
+
+		raise ValueError(f'{path}')
+
+	def _load_branch(self, path: Path):
+		items = self.load(path)
+		return self._ItemLevel(items, log_file=self._log_file, no_display=self._no_display,
+							   force_display=self._force_display, print_msgs=self._item_print_msgs)
+
+	def __iter__(self):
+		self.prepare()
+		return self.pbar.push(self._FileLevel(
+			self._files, root=self._root, loader=self._load_branch, total=self._count,
+			log_file=self._log_file, no_display=self._no_display, force_display=self._force_display,
+			print_msgs=self._file_print_msgs))
 
 

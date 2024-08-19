@@ -142,7 +142,7 @@ class cb_tqdm(tqdm.tqdm):
 		self._callback = callback
 
 	def refresh(self, nolock=False, lock_args=None):
-		if self._callback is None or self._callback(self):
+		if hasattr(self, '_callback') and (self._callback is None or self._callback(self)):
 			self.force_refresh(nolock, lock_args)
 
 	def force_refresh(self, nolock=False, lock_args=None):
@@ -202,7 +202,7 @@ class ProgressBarIterator(EagerIterator):
 	def update(self, force: bool = False):
 		pbar = self._pbar
 		pbar.force_refresh()
-		if force or self.log_file is not None and (self._log_progress_threshold is None or self._prev_log is None
+		if self.log_file is not None and (force or self._log_progress_threshold is None or self._prev_log is None
 				or pbar.n / pbar.total - self._prev_log >= self._log_progress_threshold):
 			info = pbar.format_dict
 			info['bar_format'] = '{l_bar}{r_bar}'
@@ -253,7 +253,7 @@ class CustomProgressBarIterator(ProgressBarIterator):
 				pbar.set_description(str(desc), refresh=False)
 		return super().record(pbar)
 
-	def finished(self, msg: str = 'Done'):
+	def finished(self, msg: str = None):
 		self._pbar.set_description(msg, refresh=False)
 		super().finished()
 
@@ -314,7 +314,7 @@ class HierarchicalProgressBar:
 	def push(self, source: AbstractIterator | Iterable | Iterator | int, *, total: int = None,
 			 reporter: Callable[[Any], Optional[str]] = None, brancher: Callable[[Any], Optional[Iterable]] = None,
 			 **kwargs):
-		item = source if isinstance(source, self.Level) \
+		item = source if isinstance(source, ProgressBarIterator) \
 			else self._create_level(source, total=total, reporter=reporter, brancher=brancher, **kwargs)
 		item.level = len(self._hierarchy) + 1
 		self._hierarchy.append(item)
