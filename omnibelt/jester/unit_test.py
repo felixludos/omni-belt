@@ -2,8 +2,10 @@ from .imports import *
 import pytest
 import json
 import csv
+import time
 
 from .paths import FileJester, MultiFileJester, AutoFileJester
+# from .progress_bar import ProgressBar
 
 
 @pytest.fixture
@@ -90,3 +92,24 @@ def test_auto_jester(complex_file_structure):
 	print(paths)
 
 	pass
+
+
+def test_pbar():
+	pbar = ProgressBar()
+	ls = []
+	for x in pbar.push(4, seeder=lambda x: 'abcde', scribe=lambda x: f'Processing {x + 1}'):
+		time.sleep(0.2)
+		ls.append(x)
+	print(ls)
+
+
+
+
+
+
+
+
+
+
+
+
