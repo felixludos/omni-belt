@@ -128,7 +128,33 @@ def test_jester(complex_file_structure):
 	print(jester)
 
 
+from .simple import Jester
 
+def test_jester_simple(complex_file_structure):
+	import pandas as pd
+
+	base_path = complex_file_structure
+
+	log = io.StringIO()
+
+	query = base_path / '**/*.json'
+	query = Path(r'C:/Users/anwan/OneDrive/Khan/research/alphageometry/data/old/*.csv')
+
+	jester = Jester(query, log=log, brancher=lambda path: (dict(x) for i,x in pd.read_csv(path).iterrows()))
+
+	print(jester)
+
+	ls = []
+	for x in jester:
+		ls.append(x)
+		time.sleep(0.05)
+
+	log.seek(0)
+	rawlog = log.read()
+	print()
+	print(rawlog)
+
+	print(jester)
 
 
 

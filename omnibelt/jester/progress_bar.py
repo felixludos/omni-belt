@@ -154,7 +154,7 @@ class cb_nbtqdm(cb_tqdm, tqdm.notebook.tqdm):
 
 
 
-class ProgressBarIterator(EagerIterator):
+class IntegratedProgressBarIterator(EagerIterator):
 	_envs_no_pbar = {'cluster', 'pytest'}
 	_envs_notebook_pbar = {'jupyter', 'colab'}
 	_std_tqdm = cb_tqdm
@@ -235,6 +235,92 @@ class ProgressBarIterator(EagerIterator):
 
 	def record(self, item: Any):
 		self.update()
+
+
+
+class ProgressBarIterator(EagerIterator):
+	_envs_no_pbar = {'cluster', 'pytest'}
+	_envs_notebook_pbar = {'jupyter', 'colab'}
+	_std_tqdm = tqdm.tqdm
+	_nb_tqdm = tqdm.notebook.tqdm
+
+	def __init__(self, source: Iterable | Iterator | int, total: int = None, *,
+				 desc: Optional[str] = None, leave: Optional[bool] = True,
+				 log_file: Optional[Union[str, io.TextIOBase]] = None,
+				 no_display: bool = False, force_display: bool = False,
+				 print_msgs: int = 100, **kwargs):
+		super().__init__(source, total=total, **kwargs)
+		assert not (no_display and force_display), "Cannot have both 'no_display' and 'force_display' set to True"
+		self._env = where_am_i()
+		self._pbar = None
+		self._leave = leave
+		self._desc = desc
+		self._log_progress_threshold = None if print_msgs is None else 1. / print_msgs
+		self.log_file = log_file
+		self._no_display = no_display
+		self._force_display = force_display
+
+	@property
+	def is_logging(self):
+		return self.log_file is not None
+
+	@property
+	def is_displaying(self):
+		return not self._no_display and (self._force_display or self._env not in self._envs_no_pbar)
+
+	def reset(self):
+		if self._pbar is not None:
+			self._pbar.close()
+		super().reset()
+		return self
+
+	def _prepare(self, parent: AbstractIterator = None):
+		self._parent = parent
+		pbar_cls = self._nb_tqdm if self._env in self._envs_notebook_pbar else self._std_tqdm
+		self._pbar = pbar_cls(self.src, hide=not self.is_displaying, callback=lambda pbar: False,
+							 leave=self._leave, desc=self._desc)
+		self._itr = iter(self._pbar)
+		self._prev_log = None
+		return self
+
+	def update(self, force: bool = False):
+		pbar = self._pbar
+		pbar.force_refresh()
+		if self.log_file is not None and (force or self._log_progress_threshold is None or self._prev_log is None
+				or pbar.n / pbar.total - self._prev_log >= self._log_progress_threshold):
+			info = pbar.format_dict
+			info['bar_format'] = '{l_bar}{r_bar}'
+			status = pbar.format_meter(**info).replace('||', ' |')
+			# status = self.log_fmt.format(**self.format_dict)
+			self.log_file.write(status + '\n')
+			self.log_file.flush()
+			self._prev_log = pbar.n / pbar.total
+
+	def get_start_msg(self):
+		if self._desc is not None:
+			return f"Starting {self._desc}"
+
+	def get_finished_msg(self):
+		pass
+
+	def start(self):
+		msg = self.get_start_msg()
+		if self.log_file is not None and msg is not None:
+			self.log_file.write(msg + '\n')
+			self._prev_log = 0
+
+	def finished(self):
+		msg = self.get_finished_msg()
+		if self.log_file is not None and msg is not None:
+			self.log_file.write(msg + '\n')
+		else:
+			self.update(force=True)
+		self._pbar.close()
+
+	def record(self, item: Any):
+		self.update()
+
+
 
 
 class CustomProgressBarIterator(ProgressBarIterator):

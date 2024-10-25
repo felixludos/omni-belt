@@ -1,4 +1,4 @@
-__version__ = '0.8.5'
+__version__ = '0.8.6'
 
 from .flow import safe_self_execute, multi_index, cwd, include_module, lengen
 from .loggers import get_printer, get_global_setting, get_global_settings, set_global_setting, set_printer_setting
@@ -13,6 +13,7 @@ from .patterns import Singleton, InitWall, Service
 from .containers import deep_get, Simple_Child, Proper_Child, AttrDict, AttrOrdDict, Value, LoadedValue, Named
 from .registries import Registry, Entry_Registry, Named_Registry, Class_Registry, Path_Registry, Function_Registry
 from .logic import sort_by, resolve_order, toposort, linearize, CycleDetectedError
+from .math import prime_factors, closest_factors
 from .hashing import Hashable, md5
 from .utils import (human_readable_number, sign, split_dict, filter_duplicates, expression_format,
 					pformat, pformat_vars, tqdmd, tqdmd_notebook, is_pycharm_debugger_running)

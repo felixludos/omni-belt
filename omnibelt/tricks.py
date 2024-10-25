@@ -1260,7 +1260,9 @@ def extract_function_signature(fn: Union[Callable, Type],
 					else:
 						fixed_args.append(p.default)
 				else:
-					val = default_fn(n, p.default)
+					val = default_fn(n, p)
+					if val is p:
+						val = p.default
 					if val is p.empty:
 						missing.append(p)
 					else:
@@ -1274,7 +1276,9 @@ def extract_function_signature(fn: Union[Callable, Type],
 				fixed_args.extend(args[arg_idx:])
 				arg_idx = len(args)
 			else:
-				val = default_fn(n, [])
+				val = default_fn(n, p)
+				if val is p or val is p.empty:
+					val = ()
 				fixed_args.extend(val)
 
 		elif p.kind == p.VAR_KEYWORD:
@@ -1282,7 +1286,9 @@ def extract_function_signature(fn: Union[Callable, Type],
 			if default_fn is None:
 				fixed_kwargs.update(kwargs)
 			else:
-				val = default_fn(n, {})
+				val = default_fn(n, p)
+				if val is p or val is p.empty:
+					val = {}
 				fixed_kwargs.update(val)
 
 		else:
@@ -1301,7 +1307,9 @@ def extract_function_signature(fn: Union[Callable, Type],
 					else:
 						fixed_kwargs[n] = p.default
 				else:
-					val = default_fn(n, p.default)
+					val = default_fn(n, p)
+					if val is p:
+						val = p.default
 					if val is p.empty:
 						missing.append(p)
 					else:
