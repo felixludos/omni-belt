@@ -1,5 +1,5 @@
 
-from typing import Union, Iterable
+from typing import Union, Iterable, Dict, List
 import heapq
 
 
@@ -25,7 +25,7 @@ def prime_factors(n: int, /): # should probably be moved to omnibelt
 
 
 
-def closest_factors(A_factors: Union[int, Iterable[int], dict[int, int]], B_factors: Union[int, list[int], dict[int, int]], /):
+def closest_factors(A_factors: Union[int, Iterable[int], Dict[int, int]], B_factors: Union[int, List[int], Dict[int, int]], /):
     """
     Generate factors of A in order such that they are closest to B.
 
