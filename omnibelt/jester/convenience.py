@@ -1,11 +1,12 @@
 import random
+from typing import Dict
 from .. import pformat
 from .imports import *
 from tabulate import tabulate
 
 
 
-def select(seq: Iterable[dict[str, Any]], n: int = 10) -> Iterable[dict[str, Any]]:
+def select(seq: Iterable[Dict[str, Any]], n: int = 10) -> Iterable[Dict[str, Any]]:
 	try:
 		len(seq)
 	except TypeError:
@@ -18,8 +19,8 @@ def select(seq: Iterable[dict[str, Any]], n: int = 10) -> Iterable[dict[str, Any
 
 
 
-def view(seq: Iterable[dict[str, Any]], *keys: str | Callable[[dict[str, Any]], Any], world: None = None,
-		 sortby: str | Callable[[dict[str, Any]], Any] | Iterable[str] = None, descending: bool = False,
+def view(seq: Iterable[Dict[str, Any]], *keys: str | Callable[[Dict[str, Any]], Any], world: None = None,
+		 sortby: str | Callable[[Dict[str, Any]], Any] | Iterable[str] = None, descending: bool = False,
 		 n: int = None, force: bool = False, allow_patterns:  bool = True, tablefmt: str = 'simple') -> str:
 	if world is None:
 		world = {}
@@ -58,8 +59,8 @@ def view(seq: Iterable[dict[str, Any]], *keys: str | Callable[[dict[str, Any]], 
 
 
 
-def batchify(seq: Iterable[dict[str, Any]], batch_size: int = 10, *,
-			 drop_last: bool = False, shuffle: bool = False) -> Iterable[dict[str, Any]]:
+def batchify(seq: Iterable[Dict[str, Any]], batch_size: int = 10, *,
+			 drop_last: bool = False, shuffle: bool = False) -> Iterable[Dict[str, Any]]:
 	if shuffle:
 		seq = list(seq)
 		random.shuffle(seq)
