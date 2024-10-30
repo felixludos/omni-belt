@@ -1,7 +1,7 @@
 from .imports import *
 import json, yaml
 import pandas as pd
-from .environment import where_am_i
+from ..environment import where_am_i
 from .progress_bar import HierarchicalProgressBar, ProgressBarIterator, CustomProgressBarIterator
 
 # import h5py as hdf

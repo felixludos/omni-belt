@@ -14,6 +14,7 @@ from .containers import deep_get, Simple_Child, Proper_Child, AttrDict, AttrOrdD
 from .registries import Registry, Entry_Registry, Named_Registry, Class_Registry, Path_Registry, Function_Registry
 from .logic import sort_by, resolve_order, toposort, linearize, CycleDetectedError
 from .math import prime_factors, closest_factors
+from .environment import where_am_i, where_could_i_be
 from .hashing import Hashable, md5
 from .utils import (human_readable_number, sign, split_dict, filter_duplicates, expression_format,
 					pformat, pformat_vars, tqdmd, tqdmd_notebook, is_pycharm_debugger_running)

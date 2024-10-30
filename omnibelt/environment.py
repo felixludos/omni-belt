@@ -26,7 +26,7 @@ def where_am_i():
 		pass
 
 	if 'PYTEST_CURRENT_TEST' in os.environ:
-	    return 'pytest'
+		return 'pytest'
 	if os.environ.get('JOB_ID', None) is not None:
 		return 'cluster'
 	elif 'COLAB_GPU' in os.environ:
