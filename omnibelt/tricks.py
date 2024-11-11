@@ -469,7 +469,9 @@ class dynamic_capture:
 
 		def __call__(self, *args, **kwargs):
 			# assert self.instance is not None, 'cannot call a captured method without an instance'
-			return self.fn(self.owner, self.method_fn, self.instance, args, kwargs)
+			method_fn = self.method_fn.method_fn if isinstance(self.method_fn, dynamic_capture.capture_context) \
+				else self.method_fn
+			return self.fn(self.owner, method_fn, self.instance, args, kwargs)
 
 
 	def activate(self):
@@ -1233,6 +1235,9 @@ def extract_function_signature(fn: Union[Callable, Type],
 		fn = fn.__init__
 		skip_first = skip_first is not False
 
+	if isinstance(fn, dynamic_capture.capture_context):
+		# fn = fn.method_fn
+		print(fn)
 	params = inspect.signature(fn).parameters
 	if skip_first:
 		params = list(params.values())[1:]
