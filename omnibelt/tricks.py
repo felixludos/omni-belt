@@ -1343,6 +1343,64 @@ def extract_missing_args(fn: Union[Callable, Type], args=None, kwargs=None, *, i
 		return existing, missing
 	return missing
 
+from typing import Mapping, TypeVar
+
+T = TypeVar('T')
+
+
+class MissingArgsError(ValueError):
+	def __init__(self, location: T, method: Callable, src: T, missing: Iterable[str], *, msg: str = None):
+		if msg is None:
+			msg = f'{src} is missing arguments for {location}.{method.__name__}: {", ".join(missing)}'
+		super().__init__(msg)
+
+
+
+class Dictionary_Capturer:
+	def __init__(self, src: T, method_name: str, content: Mapping[str, Any], *, aliases: Mapping[str, str] = None, agitator: Type[T] = None):
+		self.src = src
+		self.method_name = method_name
+		self.content = content
+		self.aliases = aliases
+		self.agitator = agitator
+
+
+	def valid_targets(self, base: Type[T]) -> Iterator[Type[T]]:
+		'''Returns a list of all the parent classes that are Configurable'''
+		for candidate in base.mro():
+			if self.agitator is None or issubclass(candidate, self.agitator):
+				yield candidate
+
+
+	def find_missing_arg(self, name: str, default: Optional[inspect.Parameter] = inspect.Parameter.empty) -> Any:
+		'''Finds the missing argument in the content'''
+		return self.content.get(name, default)
+
+
+	_MissingArgsError = MissingArgsError
+
+
+	def capturer(self, owner: Type, method: Callable, obj: Any, args: Tuple, kwargs: Dict[str, Any]) -> Any:
+		bound = method.__get__(obj, obj.__class__)
+
+		fixed_args, fixed_kwargs, missing = extract_function_signature(bound, args, kwargs,
+																	   default_fn=self.find_missing_arg,
+																	   include_missing=True)
+		if len(missing):
+			raise self._MissingArgsError(obj, method, self.src, missing)
+
+		return bound(*fixed_args, **fixed_kwargs)
+
+
+	def run(self, *args, **kwargs):
+		targets = list(self.valid_targets(type(self.src)))
+		capture = dynamic_capture(targets, self.capturer, self.method_name).activate()
+
+		method = getattr(self.src, self.method_name, None)
+		result = None if method is None else method(*args, **kwargs)
+
+		capture.deactivate()
+		return result
 
 
 # def extract_missing_args(fn: Union[Callable, Type],

@@ -25,10 +25,11 @@ from .exporting import export, load_export, set_export_manager, ExportManager
 from .tricks import self_aware, clsdec, innerchild, method_wrapper, ClassDescriptable, classdescriptor, \
 	extract_function_signature, capturable_super, captured_super, auto_init, dynamic_capture, \
 	smartproperty, autoproperty, referenceproperty, defaultproperty, TrackSmart, Tracer, \
-	Modifiable, inject_modifiers, ClassHierarchy, method_decorator, args2kwargs, extract_missing_args
+	Modifiable, inject_modifiers, ClassHierarchy, Dictionary_Capturer, method_decorator, args2kwargs, extract_missing_args
 from .propagators import method_propagator
 from .operators import operation_base, auto_operation, Operationalized, DecoratedOperational, \
 	AbstractOperational, AbstractOperator
+from .staging import AbstractStaged, Staged, AutoStaged
 
 from .packing import Packable, primitive, Primitive, SERIALIZABLE, JSONABLE, pack, unpack
 from .packing import save_pack, load_pack, json_pack, json_unpack
