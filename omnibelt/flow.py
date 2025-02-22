@@ -162,8 +162,9 @@ class pickle_rick:
 
 	def __enter__(self):
 		if self._num_workers > 0:
+			pfn = cloudpickle.dumps(self._fn)
 			self._pool = mp.Pool(self._num_workers, initializer=self._worker_init,
-								 initargs=(cloudpickle.dumps(self._fn), self._pickle_args, self._star_args))
+								 initargs=(pfn, self._pickle_args, self._star_args))
 		return self
 
 	def __exit__(self, exc_type, exc_val, exc_tb):
