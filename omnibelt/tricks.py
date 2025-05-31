@@ -911,7 +911,7 @@ class defaultproperty(smartproperty):
 	# 		return self.default
 
 
-from .utils import split_dict
+from .formatting import split_dict
 
 
 class TrackSmart:
@@ -1357,7 +1357,8 @@ class MissingArgsError(ValueError):
 
 
 class Dictionary_Capturer:
-	def __init__(self, src: T, method_name: str, content: Mapping[str, Any], *, aliases: Mapping[str, str] = None, agitator: Type[T] = None):
+	def __init__(self, src: T, method_name: str, content: Mapping[str, Any], *, aliases: Mapping[str, str] = None,
+				 agitator: Type[T] = None):
 		self.src = src
 		self.method_name = method_name
 		self.content = content

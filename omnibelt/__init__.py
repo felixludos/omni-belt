@@ -16,8 +16,10 @@ from .logic import sort_by, resolve_order, toposort, linearize, CycleDetectedErr
 from .math import prime_factors, closest_factors
 from .environment import where_am_i, where_could_i_be
 from .hashing import Hashable, md5
-from .utils import (human_readable_number, sign, split_dict, filter_duplicates, expression_format,
-					pformat, pformat_vars, tqdmd, tqdmd_notebook, is_pycharm_debugger_running, warp_text, flatten)
+from .formatting import (human_readable_number, sign, split_dict, filter_duplicates, expression_format,
+						 pformat, pformat_vars, tqdmd, tqdmd_notebook, is_pycharm_debugger_running, wrap_text,
+						 fixed_width_format_value, fixed_width_format_positive, human_size)
+from .structured import flatten
 from .ordered_set import OrderedSet
 from .farming import WorkerPool
 from .exporting import AbstractExporter, AbstractExportManager, SimpleExporterBase
@@ -30,13 +32,15 @@ from .propagators import method_propagator
 from .operators import operation_base, auto_operation, Operationalized, DecoratedOperational, \
 	AbstractOperational, AbstractOperator
 from .staging import AbstractStaged, Staged, AutoStaged
+from .structured import jsonify, Jsonable, JSONOBJ, JSONDATA, flatten, unflatten, \
+	deep_remove, deep_get
 
 from .packing import Packable, primitive, Primitive, SERIALIZABLE, JSONABLE, pack, unpack
 from .packing import save_pack, load_pack, json_pack, json_unpack
 # from .pure_packing import pack, unpack, json_unpack, json_pack
 
 from .transactions import Transactionable, AbortTransaction
-from .wrappers import ObjectWrapper
+# from .wrappers import ObjectWrapper
 from .nodes import OmniNode, OmniStructure, TreeNode, LocalNode
 from .viz import printc, bcolors, colorize
 
@@ -48,9 +52,8 @@ from .viz import printc, bcolors, colorize
 # else: # Register additional common packable types
 # 	from . import common
 
-from .basic_containers import adict, tdict, tlist, tset, tstack, tdeque, theap
-from .basic_containers import containerify
-
-from .structured import TreeSpace, Table, Key_Table
+# from .basic_containers import adict, tdict, tlist, tset, tstack, tdeque, theap
+# from .basic_containers import containerify
+# from .structured import TreeSpace, Table, Key_Table
 
 

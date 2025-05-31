@@ -1,186 +1,153 @@
+from typing import Union, List, Dict, Any, Callable, Iterable
 
-import traceback
+PRIMITIVES = (str, int, float, bool, type(None))
+JSONPRIMITIVE = Union[*PRIMITIVES, None]
+JSONDATA = Union[JSONPRIMITIVE, List['JSONDATA'], Dict[str, 'JSONDATA']]
+JSONOBJ = Dict[str, JSONDATA]
+JSONFLAT = Dict[str, JSONPRIMITIVE]
 
-from .basic_containers import adict, tlist
+
+
+class Jsonable:
+	def json(self) -> 'JSONLIKEOBJ':
+		"""
+		Return a JSON serializable representation of the object.
+		"""
+		raise NotImplementedError("Subclasses must implement json() method")
+JSONLIKE = Union[None, *PRIMITIVES, Jsonable, List['JSONLIKE'], Dict[str, 'JSONLIKE']]
+JSONLIKEOBJ = Dict[str, JSONLIKE]
 
 
 
-class TreeSpace(adict):
-	'''
-	Namespace - like a dictionary but where keys can be accessed as attributes, and if not found will create new NS
-	allowing:
+def flatten(data: JSONOBJ, parent_key: str = '', sep: str = '.') -> JSONFLAT:
+	items = {}
+	for key, value in data.items() if isinstance(data, dict) else enumerate(data):
+		new_key = f"{parent_key}{sep}{key}" if parent_key else key
+		if isinstance(value, (dict, list)) and not isinstance(value, str):
+			items.update(flatten(value, new_key, sep=sep))
+		else:
+			items[new_key] = value
+	return items
 
-	a = TreeSpace()
-	a.b.c.d = 'hello'
-	print(repr(a)) # --> {{'b':{{'c':{{'d':'hello'}}}}}}
 
-	NOTE: avoid ``hasattr``! - always returns true (creating new attrs), use ``__contains__`` instead
 
-	'''
-	
-	def __getitem__(self, key):
-		try:
-			v = super().__getitem__(key)
-			# print(key,v)
-			return v
-		except KeyError:
-			try:
-				return super().__getattribute__(key)
-			except AttributeError:
-				# print('**WARNING: defaulting {}'.format(key))
-				return self._missing_key(key)
-	
-	def _missing_key(self, key):
-		obj = self.__class__()
-		self.__setitem__(key, obj)
+def unflatten(data: JSONFLAT, sep: str = '.') -> JSONOBJ:
+	items = {}
+	for key, value in data.items():
+		keys = key.split(sep)
+		d = items
+		for k in keys[:-1]:
+			if k not in d:
+				d[k] = {} if keys[-1].isdigit() else []
+			d = d[k]
+		if keys[-1].isdigit():
+			d.append(value)
+		else:
+			d[keys[-1]] = value
+	return items
+
+
+
+_empty_json = object()
+def deep_get(data: JSONDATA, target: Union[str, Iterable[str]], default: Any = _empty_json, *, sep: str = '.') -> Any:
+	if isinstance(target, str):
+		target = target.split(sep)
+	if not target:
+		if default is _empty_json:
+			raise ValueError(f"Cannot get empty value for target '{target}'")
+		return default
+	key, *rest = target
+	if isinstance(data, dict):
+		if key in data:
+			value = data[key]
+		elif any(k.startswith(key) for k in data):
+			value = {k[len(key) + len(sep):]: v for k, v in data.items() if k.startswith(key + sep)}
+		else:
+			raise KeyError(f"Key '{key}' not found in data for target '{target}'")
+		if rest:
+			return deep_get(value, sep.join(rest), default, sep=sep)
+		return value
+	elif isinstance(data, list) and key.isdigit() and 0 <= int(key) < len(data):
+		value = data[int(key)]
+		if rest:
+			return deep_get(value, sep.join(rest), default, sep=sep)
+		return value
+	elif default is not _empty_json:
+		return default
+	else:
+		raise KeyError(f"Key '{key}' not found in data for target '{target}'")
+
+
+
+def deep_extract(data: JSONDATA, target: Union[str, Iterable[str]], *, sep: str = '.') -> Any:
+	if isinstance(target, str):
+		target = target.split(sep)
+	if not len(target):
+		return data
+
+	key, *rest = target
+
+	if key.isdigit():
+		if not isinstance(data, list):
+			raise TypeError(f"Cannot access index '{key}' in non-list type {type(data).__name__}")
+		key = int(key)
+		if key >= len(data) or key < -len(data):
+			raise IndexError(f"Index '{key}' out of range for list of length {len(data)}")
+		out = [None] * (key + int(key >= 0))
+	else:
+		if not isinstance(data, dict):
+			raise TypeError(f"Cannot access key '{key}' in non-dict type {type(data).__name__}")
+		if key not in data:
+			raise KeyError(f"Key '{key}' not found in data")
+		out = {}
+
+	out[key] = deep_extract(data[key], rest, sep=sep)
+	return out
+
+
+def deep_remove(data: JSONDATA, target: Union[str, Iterable[str]], *, sep: str = '.') -> Any:
+	if isinstance(target, str):
+		target = target.split(sep)
+	if not target:
+		raise ValueError(f"Cannot remove empty value for target '{target}'")
+	key, *rest = target
+	if isinstance(data, dict):
+		if key in data:
+			return deep_remove(data[key], sep.join(rest), sep=sep) if rest else data.pop(key, None)
+		to_remove = [k for k in data if k.startswith(key + sep)]
+		if any(k.startswith(key) for k in data):
+			# Remove all keys that start with the target key
+
+			for k in to_remove:
+				del data[k]
+			return None
+	elif isinstance(data, list) and key.isdigit() and 0 <= int(key) < len(data):
+		key = int(key)
+		if rest:
+			return deep_remove(data[key], sep.join(rest), sep=sep)
+		value = data[key]
+		data[key] = None
+		return value
+	else:
+		raise KeyError(f"Key '{key}' not found in data for target '{target}'")
+
+
+
+def jsonify(obj: JSONLIKE, *, encoder: Callable[[Any], JSONDATA] = str) -> JSONOBJ:
+	"""
+	Convert an object to a JSON serializable format.
+	"""
+	if isinstance(obj, Jsonable):
+		raw = obj.json()
+		return {k: jsonify(v, encoder=encoder) for k, v in raw.items()}
+	elif isinstance(obj, PRIMITIVES):
 		return obj
-	
-	def todict(self):
-		d = {}
-		for k ,v in self.items():
-			if isinstance(v, TreeSpace):
-				v = v.todict()
-			d[k] = v
-		return d
-	
-	def __repr__(self):
-		return '{}{}{}'.format('{{', ', '.join(['{}:{}'.format(repr(k), repr(v)) for k ,v in self.items()]), '}}')
+	elif isinstance(obj, (tuple, set, list)):
+		return [jsonify(item, encoder=encoder) for item in obj]
+	elif isinstance(obj, dict):
+		return {k: jsonify(v, encoder=encoder) for k, v in obj.items()}
+	elif encoder is not None:
+		return encoder(obj)
+	raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
-class Table(tlist):
-	'''
-	Essentially a database (elements are rows, keys are cols)
-	Allowing nonrectangular entries
-	All elements should be dicts (or ideally tdicts)
-	'''
-	
-	def __init__(self, *args, _type=adict, **kwargs):
-		super().__init__(*args, **kwargs)
-		self.__dict__['_el_type'] = _type
-	
-	def sort_by(self, *keys):
-		self.__dict__['_data'] = sorted(self, key=lambda x: tuple(x[k] for k in keys))
-	
-	def select(self, key, skip=True):
-		for x in self.selects(key, skip=skip):
-			yield x[0]
-	
-	def selects(self, *keys, skip=True):
-		for x in self:
-			l = []
-			for k in keys:
-				if k in x:
-					l.append(x[k])
-				elif skip:
-					l = None
-					break
-				else:
-					raise KeyError(k)
-			if l is not None:
-				yield l
-	
-	def select_items(self, key, skip=True, skip_flag=None):
-		for x in self:
-			if key in x:
-				yield x[key], x
-			elif not skip:
-				yield skip_flag, x
-	
-	def _join(self, other, cmp, merge_fn=None):
-		
-		if isinstance(cmp, str):
-			cmp = lambda a ,b: a[cmp] == b[cmp]
-		elif isinstance(cmp, tuple):
-			ca, cb = cmp
-			cmp = lambda a ,b: a[ca] == b[cb]
-		if merge_fn is None:
-			def merge_fn(a ,b):
-				a = a.copy()
-				a.update(b)
-				return a
-		
-		for a in self:
-			for b in other:
-				if cmp(a ,b):
-					yield merge_fn(a ,b)
-	
-	def join_(self, other, cmp, merge_fn=None):
-		if merge_fn is None:
-			merge_fn = lambda a ,b: a.update(b)
-		for _ in self._join(other, cmp, merge_fn=merge_fn):
-			pass
-	
-	def join(self, other, cmp, merge_fn=None):
-		return self.__class__(self._join(other, cmp, merge_fn=merge_fn))
-	
-	def filter_(self, fn):
-		self.__dict__['_data'] = [x for x in self if fn(x)]
-	
-	def filter(self, fn):
-		return self.__class__(x for x in self if fn(x))
-	
-	def new(self, *args, **kwargs):
-		obj = self._el_type(*args, **kwargs)
-		self.append(obj)
-		return obj
-	
-	def map(self, fn, indexed=False, safe=False, pbar=None, reduce=None):
-		'''
-		fn is a callable taking one run as input
-		'''
-		
-		outs = []
-		
-		seq = self if pbar is None else pbar(self)
-		
-		for i, x in enumerate(seq):
-			try:
-				inp = (i ,x) if indexed else (x,)
-				out = fn(*inp)
-				outs.append(out)
-			except Exception as e:
-				if safe:
-					print(f'elm {i} failed')
-					traceback.print_exc()
-				else:
-					raise e
-		
-		if pbar is not None:
-			seq.close()
-		
-		if reduce is not None:
-			return reduce(outs)
-		return outs
-	
-	# def through(self, **map_kwargs):
-	#
-	# 	def _execute(fn, args=[], kwargs={}):
-	# 		return self.map(lambda run: fn(run, *args, **kwargs),
-	# 		                **map_kwargs)
-	#
-	# 	return make_ghost(self._el_type, _execute)
-
-class _nothing:
-	pass
-
-class Key_Table(Table):
-	'''
-	Very similar to Table, but with a specified key that can be used with the get() function
-	(so the table acts a little more like a dict)
-	'''
-	
-	def __init__(self, *args, _get_key=None, **kwargs):
-		super().__init__(*args, **kwargs)
-		self.__dict__['_keys'] = {}
-		self.__dict__['_get_key'] = _get_key
-	
-	def new(self, *args, **kwargs):
-		obj = super().new(*args, **kwargs)
-		get_key = self.__dict__['_get_key']
-		self.__dict__['_keys'][get_key(obj)] = obj
-		return obj
-
-	def get(self, key, default=_nothing):
-		if default is _nothing:
-			return self.__dict__['_keys'][key]
-		return self.__dict__['_keys'].get(key, default)
 

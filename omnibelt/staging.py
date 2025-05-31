@@ -48,6 +48,8 @@ class AutoStaged(Staged, AbstractSetup):
 		self._auto_setup_helper(self, 'setup', scape, agitator=AutoStaged).run()
 		return super()._stage(scape)
 
+	def setup(self):
+		pass
 
 
 def test_staged():
