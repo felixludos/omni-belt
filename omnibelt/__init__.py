@@ -32,7 +32,7 @@ from .propagators import method_propagator
 from .operators import operation_base, auto_operation, Operationalized, DecoratedOperational, \
 	AbstractOperational, AbstractOperator
 from .staging import AbstractStaged, Staged, AutoStaged
-from .structured import jsonify, Jsonable, JSONOBJ, JSONDATA, flatten, unflatten, \
+from .structured import jsonify, Jsonable, Stateful, JSONOBJ, JSONLIKEOBJ, JSONDATA, flatten, unflatten, \
 	deep_remove, deep_get
 
 from .packing import Packable, primitive, Primitive, SERIALIZABLE, JSONABLE, pack, unpack

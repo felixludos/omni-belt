@@ -1,7 +1,8 @@
 from typing import Union, List, Dict, Any, Callable, Iterable
 
 PRIMITIVES = (str, int, float, bool, type(None))
-JSONPRIMITIVE = Union[*PRIMITIVES, None]
+JSONPRIMITIVE = Union[str, int, float, bool, None]
+# JSONPRIMITIVE = Union[*PRIMITIVES, None]
 JSONDATA = Union[JSONPRIMITIVE, List['JSONDATA'], Dict[str, 'JSONDATA']]
 JSONOBJ = Dict[str, JSONDATA]
 JSONFLAT = Dict[str, JSONPRIMITIVE]
@@ -14,7 +15,8 @@ class Jsonable:
 		Return a JSON serializable representation of the object.
 		"""
 		raise NotImplementedError("Subclasses must implement json() method")
-JSONLIKE = Union[None, *PRIMITIVES, Jsonable, List['JSONLIKE'], Dict[str, 'JSONLIKE']]
+# JSONLIKE = Union[None, *PRIMITIVES, Jsonable, List['JSONLIKE'], Dict[str, 'JSONLIKE']]
+JSONLIKE = Union[None, str, int, float, bool, Jsonable, List['JSONLIKE'], Dict[str, 'JSONLIKE']]
 JSONLIKEOBJ = Dict[str, JSONLIKE]
 
 
@@ -30,7 +32,6 @@ def flatten(data: JSONOBJ, parent_key: str = '', sep: str = '.') -> JSONFLAT:
 	return items
 
 
-
 def unflatten(data: JSONFLAT, sep: str = '.') -> JSONOBJ:
 	items = {}
 	for key, value in data.items():
@@ -38,14 +39,19 @@ def unflatten(data: JSONFLAT, sep: str = '.') -> JSONOBJ:
 		d = items
 		for k in keys[:-1]:
 			if k not in d:
-				d[k] = {} if keys[-1].isdigit() else []
+				d[k] = {}
 			d = d[k]
-		if keys[-1].isdigit():
-			d.append(value)
-		else:
-			d[keys[-1]] = value
-	return items
+		d[keys[-1]] = value
+	return fix_lists_deep(items)
 
+
+def fix_lists_deep(data: JSONDATA) -> JSONDATA:
+	if not isinstance(data, dict):
+		return data
+	if all(str(i) in data for i in range(len(data))):
+		# If all keys are numeric, convert to list
+		return [fix_lists_deep(data[str(i)]) for i in range(len(data))]
+	return {k: fix_lists_deep(v) for k, v in data.items()}
 
 
 _empty_json = object()
@@ -149,5 +155,103 @@ def jsonify(obj: JSONLIKE, *, encoder: Callable[[Any], JSONDATA] = str) -> JSONO
 	elif encoder is not None:
 		return encoder(obj)
 	raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+
+class Stateful(Jsonable):
+	# feature candidate names: snapshot, store, schema, specification, 
+	# 	static, seal, save, stash, submit, source, screen, sync, save, switch, safe,
+	#   shadow, shallow, spawn, share, separate, send, serve
+	def json(self) -> JSONOBJ:
+		return jsonify(self.settings())
+	
+	def status(self) -> JSONLIKE:
+		"""
+		Return some brief information about the state of the object.
+		"""
+		raise NotImplementedError("Subclasses must implement status() method")
+	
+	def settings(self) -> JSONLIKEOBJ:
+		"""
+		Return any parameters needed to reproduce the object (not including current state).
+		"""
+		raise NotImplementedError("Subclasses must implement settings() method")
+	
+	def substitute(self, settings: JSONLIKEOBJ) -> None:
+		"""
+		Set/replace the parameters of the object from a given set of settings.
+		"""
+		raise NotImplementedError("Subclasses must implement substitute() method")
+
+	def state(self) -> JSONLIKEOBJ:
+		"""
+		Return any information needed to restore the state of the object.
+		"""
+		raise NotImplementedError("Subclasses must implement state() method")
+	
+	def setstate(self, state: JSONLIKEOBJ) -> None:
+		"""
+		Set the state of the object from a given state.
+		"""
+		raise NotImplementedError("Subclasses must implement setstate() method")
+
+	@classmethod
+	def snapshot(cls, settings: JSONLIKEOBJ, state: JSONLIKEOBJ = None) -> 'Stateful':
+		"""
+		Create a new instance from a snapshot of its settings (optionally including state).
+		"""
+		raise NotImplementedError("Subclasses must implement snapshot() method")
+
+	def summary(self) -> str:
+		"""
+		Return a human-readable summary of the object state (mostly comprehensive).
+		"""
+		raise NotImplementedError("Subclasses must implement summary() method")
+	
+	def string(self, multiline: bool = None, depth: int = None) -> str:
+		"""
+		Return a string representation of the object (usually not including state).
+		"""
+		return super().__str__() if multiline else super().__repr__()
+	
+	def __str__(self) -> str:
+		return self.string(multiline=True, depth=1)
+	
+	def __repr__(self) -> str:
+		return self.string(multiline=False)
+	
+	def stash(self) -> str:
+		"""
+		Return a non-human-readable string representation of the object (usually including state).
+		"""
+		raise NotImplementedError("Subclasses must implement serialize() method")
+
+	def scent(self) -> str:
+		"""
+		Return a unique identifier taking the state into account.
+		"""
+		raise NotImplementedError("Subclasses must implement scent() method")
+	
+	def signature(self) -> str:
+		"""
+		Return a unique identifier not taking the state into account (only parameters).
+		"""
+		raise NotImplementedError("Subclasses must implement static() method")
+
+	@classmethod
+	def stash_load(cls, data: str) -> 'Stateful':
+		raise NotImplementedError("Subclasses must implement stash_load() method")
+	
+	def shadow(self) -> 'Stateful':
+		"""
+		Return a shallow copy of the object, not including state.
+		"""
+		return self.snapshot(self.settings())
+	
+	def spawn(self) -> 'Stateful':
+		"""
+		Return a shallow copy of the object, including state.
+		"""
+		raise NotImplementedError("Subclasses must implement spawn() method")
 
 
