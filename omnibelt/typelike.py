@@ -282,3 +282,71 @@ def mix_into(wrapper, obj, new_instance=False, chain=False, cls_data=None):
 #     tuple(closure)
 # )
 
+
+import typing
+import collections.abc
+
+
+def annotation_is_compatible(value: typing.Any, annotation: typing.Any) -> bool:
+	"""
+	Recursively checks if a value is compatible with a given type annotation.
+
+	Supports nested generics, Unions, Literals, and collections.abc.
+
+	https://gemini.google.com/app/a6ddccabd3453b47
+	"""
+	# Get the "origin" (container) and "args" (contents) of the annotation
+	origin = typing.get_origin(annotation)
+	args = typing.get_args(annotation)
+
+	# Case 1: Annotation is Any, everything is compatible.
+	if annotation is typing.Any:
+		return True
+
+	# Case 2: Annotation is a Union. Check if value is compatible with any type in the Union.
+	if origin is typing.Union:
+		return any(annotation_is_compatible(value, t) for t in args)
+
+	# Case 3: Annotation is a Literal. Check if the value is one of the specified literals.
+	if origin is typing.Literal:
+		return value in args
+
+	# Case 4: Annotation is a Type hint, e.g., Type[int]. Check if value is a type and a subclass.
+	if origin is type or annotation is type:
+		T = args[0] if args else typing.Any
+		return isinstance(value, type) and (T is typing.Any or issubclass(value, T))
+
+	# Case 5: Annotation is a plain type (int, str, etc.) or a class. Use isinstance.
+	if origin is None:
+		# This handles int, str, bool, custom classes, etc.
+		try:
+			return isinstance(value, annotation)
+		except TypeError:
+			# Catches cases where annotation is not a type, e.g., a list instance
+			return False
+
+	# Case 6: Annotation is a generic container (list, dict, set, etc.).
+	# First, check if the value is an instance of the container type itself.
+	if not isinstance(value, origin):
+		return False
+
+	# If the container type matches, recursively check the contents.
+	if args:
+		# For sequence-like types (list, set, tuple, Sequence)
+		if issubclass(origin, collections.abc.Sequence):
+			# Handle variadic tuples like tuple[str, int]
+			if len(args) > 1 and origin is tuple:
+				if len(value) != len(args):
+					return False
+				return all(annotation_is_compatible(item, arg) for item, arg in zip(value, args))
+			# Handle standard sequences like list[int]
+			return all(annotation_is_compatible(item, args[0]) for item in value)
+
+		# For mapping types (dict, Mapping)
+		if issubclass(origin, collections.abc.Mapping):
+			key_type, value_type = args
+			return all(annotation_is_compatible(k, key_type) and annotation_is_compatible(v, value_type) for k, v in value.items())
+
+	# If a generic has no args (e.g., just `list`), the isinstance check was enough.
+	return True
+

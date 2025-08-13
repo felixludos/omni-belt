@@ -2,7 +2,7 @@ __version__ = '0.8.9'
 
 from .flow import safe_self_execute, multi_index, cwd, include_module, lengen, pickle_rick
 from .loggers import get_printer, get_global_setting, get_global_settings, set_global_setting, set_printer_setting
-from .typelike import primitives, unspecified_argument, join_classes, replace_class, \
+from .typelike import annotation_is_compatible, primitives, unspecified_argument, join_classes, replace_class, \
 	duplicate_class, duplicate_func, duplicate_instance, wrap_class, mix_into, \
 	conditional_method, lambda_conditional_method, agnosticmethod, agnostic, agnosticproperty, isiterable
 from .filesystem import create_dir, crawl, spawn_path_options, load_yaml, save_yaml, \
@@ -32,7 +32,7 @@ from .propagators import method_propagator
 from .operators import operation_base, auto_operation, Operationalized, DecoratedOperational, \
 	AbstractOperational, AbstractOperator
 from .staging import AbstractStaged, Staged, AutoStaged
-from .structured import jsonify, Jsonable, JSONOBJ, JSONDATA, flatten, unflatten, \
+from .structured import jsonify, Jsonable, Stateful, JSONOBJ, JSONLIKEOBJ, JSONDATA, flatten, unflatten, \
 	deep_remove, deep_get
 
 from .packing import Packable, primitive, Primitive, SERIALIZABLE, JSONABLE, pack, unpack

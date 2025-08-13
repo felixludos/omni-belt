@@ -300,6 +300,7 @@ class PowerFormatter(Formatter):
 				if key in __builtins__:
 					scope[key] = __builtins__[key]
 				else:
+					# pass # TODO: handle implicit variables (eg in for loops)
 					raise KeyError(f'Variable {key!r} not found in provided args or kwargs')
 		return scope
 
